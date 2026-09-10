@@ -2,12 +2,15 @@
 #include "../parser/parser.hpp"
 #include "../types/type_checker.hpp"
 #include "../ir/lower.hpp"
+#include "../analysis/liveness.hpp"
+#include "../analysis/interference.hpp"
+#include "../codegen/register_allocator.hpp"
 #include "../codegen/x86_64.hpp"
 
-#include <fstream>
 #include <iostream>
 
 int main() {
+
     std::string source =
         "fn main() -> i32 { "
         "let x: i32 = 20; "
@@ -27,12 +30,18 @@ int main() {
     IRLowerer lowerer;
     IRFunction ir = lowerer.lower(function);
 
+    LivenessAnalyzer liveness;
+    auto ranges = liveness.analyze(ir);
+
+    InterferenceAnalyzer interference;
+    auto graph = interference.build(ranges);
+
+    RegisterAllocator allocator;
+    auto allocation = allocator.allocate(graph);
+
     X86Codegen codegen;
-    std::string assembly = codegen.generate(ir);
 
-    std::ofstream out("main.s");
-    out << assembly;
-    out.close();
+    std::cout << codegen.generate(ir, allocation);
 
-    std::cout << assembly;
+    std::cout << "Codegen: PASS\n";
 }

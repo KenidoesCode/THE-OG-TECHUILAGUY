@@ -1,15 +1,43 @@
 #pragma once
+
 #include <string>
 
 enum class TokenKind {
-    Fn, Return, Let,
+    Fn,
+    Return,
+    Let,
+
     TypeI32,
-    Identifier, Integer,
+
+    Identifier,
+    Integer,
+
     Arrow,
-    LParen, RParen,
-    LBrace, RBrace,
-    Colon, Semicolon,
-    Equal, Plus,
+
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
+
+    Colon,
+    Semicolon,
+    Equal,
+
+    Plus,
+    Minus,
+    Star,
+    Slash,
+
+    Greater,
+    Less,
+    GreaterEqual,
+    LessEqual,
+    EqualEqual,
+    NotEqual,
+
+    If,
+    Else,
+
     End
 };
 

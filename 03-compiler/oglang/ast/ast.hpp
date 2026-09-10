@@ -10,12 +10,16 @@ struct Expr {
 
 struct IntegerExpr : Expr {
     int value;
-    explicit IntegerExpr(int value) : value(value) {}
+
+    explicit IntegerExpr(int value)
+        : value(value) {}
 };
 
 struct VariableExpr : Expr {
     std::string name;
-    explicit VariableExpr(std::string name) : name(std::move(name)) {}
+
+    explicit VariableExpr(std::string name)
+        : name(std::move(name)) {}
 };
 
 struct BinaryExpr : Expr {
@@ -28,7 +32,9 @@ struct BinaryExpr : Expr {
         std::unique_ptr<Expr> left,
         std::unique_ptr<Expr> right
     )
-        : op(op), left(std::move(left)), right(std::move(right)) {}
+        : op(op),
+          left(std::move(left)),
+          right(std::move(right)) {}
 };
 
 struct Statement {
@@ -55,6 +61,22 @@ struct ReturnStmt : Statement {
 
     explicit ReturnStmt(std::unique_ptr<Expr> value)
         : value(std::move(value)) {}
+};
+
+struct IfStmt : Statement {
+    std::unique_ptr<Expr> condition;
+
+    std::vector<std::unique_ptr<Statement>> thenBody;
+    std::vector<std::unique_ptr<Statement>> elseBody;
+
+    IfStmt(
+        std::unique_ptr<Expr> condition,
+        std::vector<std::unique_ptr<Statement>> thenBody,
+        std::vector<std::unique_ptr<Statement>> elseBody
+    )
+        : condition(std::move(condition)),
+          thenBody(std::move(thenBody)),
+          elseBody(std::move(elseBody)) {}
 };
 
 struct Function {

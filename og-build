@@ -1,0 +1,289 @@
+#!/usr/bin/env bash
+
+set -u
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT"
+
+PASS=0
+FAIL=0
+SKIP=0
+
+run_step() {
+    local name="$1"
+    shift
+
+    printf "\n\033[1;36m[BUILD]\033[0m %s\n" "$name"
+
+    if "$@"; then
+        printf "\033[1;32m[PASS]\033[0m %s\n" "$name"
+        PASS=$((PASS + 1))
+        return 0
+    else
+        printf "\033[1;31m[FAIL]\033[0m %s\n" "$name"
+        FAIL=$((FAIL + 1))
+        return 1
+    fi
+}
+
+echo
+echo "============================================================"
+echo "        THE OG TECHUILAGUY — CIVILIZATION BUILD"
+echo "============================================================"
+echo
+echo "Repository: $ROOT"
+echo
+
+# ============================================================
+# 01 — Repository validation
+# ============================================================
+
+run_step "Git repository validation" \
+    git rev-parse --is-inside-work-tree >/dev/null
+
+# ============================================================
+# 02 — OGLang compiler
+# ============================================================
+
+if [ -d "03-compiler/oglang" ]; then
+
+    if (
+        cd 03-compiler/oglang
+
+        rm -f ogc
+
+        g++ -std=c++20 -Wall -Wextra -O2 \
+            main.cpp \
+            lexer/lexer.cpp \
+            parser/parser.cpp \
+            semantic/analyzer.cpp \
+            types/type_checker.cpp \
+            ir/lower.cpp \
+            analysis/liveness.cpp \
+            analysis/interference.cpp \
+            codegen/register_allocator.cpp \
+            codegen/x86_64.cpp \
+            -I. \
+            -o ogc
+
+        test -x ogc
+    ); then
+        echo "[PASS] OGLang compiler"
+        PASS=$((PASS + 1))
+    else
+        echo "[FAIL] OGLang compiler"
+        FAIL=$((FAIL + 1))
+    fi
+
+else
+    echo "[SKIP] OGLang compiler directory missing"
+    SKIP=$((SKIP + 1))
+fi
+
+# ============================================================
+# 03 — OS build
+# ============================================================
+
+if [ -d "22-os" ]; then
+
+    if (
+        cd 22-os
+
+        make clean
+        make
+
+        test -f techuilaguy-os
+
+        grub-file --is-x86-multiboot techuilaguy-os
+
+        make iso
+
+        test -f techuilaguy-os.iso
+    ); then
+        echo "[PASS] Techuilaguy OS build + Multiboot validation"
+        PASS=$((PASS + 1))
+    else
+        echo "[FAIL] Techuilaguy OS build + Multiboot validation"
+        FAIL=$((FAIL + 1))
+    fi
+
+else
+    echo "[SKIP] OS directory missing"
+    SKIP=$((SKIP + 1))
+fi
+
+# ============================================================
+# 04 — Automated shell tests
+# ============================================================
+
+echo
+echo "============================================================"
+echo "                    TEST DISCOVERY"
+echo "============================================================"
+
+TEST_COUNT=0
+
+while IFS= read -r -d '' test_file; do
+
+    TEST_COUNT=$((TEST_COUNT + 1))
+
+    echo
+    echo "[TEST] $test_file"
+
+    if bash "$test_file"; then
+        echo "[PASS] $test_file"
+        PASS=$((PASS + 1))
+    else
+        echo "[FAIL] $test_file"
+        FAIL=$((FAIL + 1))
+    fi
+
+done < <(
+    find . \
+        -type f \
+        \( -name "test_*.sh" -o -name "*_test.sh" \) \
+        -not -path "./.git/*" \
+        -print0
+)
+
+if [ "$TEST_COUNT" -eq 0 ]; then
+    echo "[INFO] No shell tests discovered"
+fi
+
+# ============================================================
+# 05 — CMake project discovery
+# ============================================================
+
+echo
+echo "============================================================"
+echo "                  CMAKE DISCOVERY"
+echo "============================================================"
+
+CMAKE_COUNT=0
+
+while IFS= read -r -d '' cmake_file; do
+
+    CMAKE_COUNT=$((CMAKE_COUNT + 1))
+
+    dir="$(dirname "$cmake_file")"
+    build_dir="$dir/build"
+
+    echo
+    echo "[CMAKE] $dir"
+
+    if cmake -S "$dir" -B "$build_dir" >/dev/null 2>&1 &&
+       cmake --build "$build_dir" -j"$(nproc)" >/dev/null 2>&1; then
+
+        echo "[PASS] $dir"
+        PASS=$((PASS + 1))
+
+    else
+
+        echo "[FAIL] $dir"
+        FAIL=$((FAIL + 1))
+
+    fi
+
+done < <(
+    find . \
+        -mindepth 2 \
+        -name CMakeLists.txt \
+        -not -path "./.git/*" \
+        -print0
+)
+
+if [ "$CMAKE_COUNT" -eq 0 ]; then
+    echo "[INFO] No CMake projects discovered"
+fi
+
+# ============================================================
+# 06 — Repository inventory
+# ============================================================
+
+echo
+echo "============================================================"
+echo "                CIVILIZATION INVENTORY"
+echo "============================================================"
+
+DOMAIN_COUNT=$(find . \
+    -mindepth 1 \
+    -maxdepth 1 \
+    -type d \
+    -not -name ".git" \
+    | wc -l)
+
+SOURCE_COUNT=$(find . \
+    -type f \
+    \( \
+        -name "*.cpp" \
+        -o -name "*.hpp" \
+        -o -name "*.h" \
+        -o -name "*.c" \
+        -o -name "*.S" \
+        -o -name "*.s" \
+        -o -name "*.rs" \
+        -o -name "*.py" \
+        -o -name "*.go" \
+        -o -name "*.java" \
+        -o -name "*.js" \
+        -o -name "*.ts" \
+    \) \
+    -not -path "./.git/*" \
+    | wc -l)
+
+TEST_FILE_COUNT=$(find . \
+    -type f \
+    \( \
+        -name "*test*" \
+        -o -name "test_*" \
+    \) \
+    -not -path "./.git/*" \
+    | wc -l)
+
+echo "Domains/directories : $DOMAIN_COUNT"
+echo "Source files        : $SOURCE_COUNT"
+echo "Test-related files  : $TEST_FILE_COUNT"
+
+# ============================================================
+# 07 — Git status
+# ============================================================
+
+echo
+echo "============================================================"
+echo "                  REPOSITORY STATUS"
+echo "============================================================"
+
+git status --short
+
+# ============================================================
+# FINAL REPORT
+# ============================================================
+
+echo
+echo "============================================================"
+echo "             CIVILIZATION BUILD REPORT"
+echo "============================================================"
+
+printf "PASS : %s\n" "$PASS"
+printf "FAIL : %s\n" "$FAIL"
+printf "SKIP : %s\n" "$SKIP"
+
+echo
+
+if [ "$FAIL" -eq 0 ]; then
+
+    echo "============================================================"
+    echo "              🟢 ALL AUTOMATED CHECKS PASS"
+    echo "============================================================"
+
+    exit 0
+
+else
+
+    echo "============================================================"
+    echo "              🔴 AUTOMATED FAILURES DETECTED"
+    echo "============================================================"
+
+    exit 1
+
+fi

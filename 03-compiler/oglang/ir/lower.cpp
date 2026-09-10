@@ -1,96 +1,125 @@
 #include "lower.hpp"
 
 #include <stdexcept>
-#include <unordered_map>
 
 IRFunction IRLowerer::lower(const Function& function) {
     IRFunction ir;
+    ir.name = function.name;
 
-    std::unordered_map<std::string, ValueId> variables;
+    nextValue = 0;
+    variables.clear();
 
     for (const auto& statement : function.body) {
-
-        if (auto* let =
-                dynamic_cast<LetStmt*>(statement.get())) {
-
-            auto* integer =
-                dynamic_cast<IntegerExpr*>(
-                    let->initializer.get()
-                );
-
-            if (!integer)
-                throw std::runtime_error(
-                    "Only integer initializers supported"
-                );
-
-            ValueId value = ir.createValue();
-
-            ir.instructions.push_back({
-                OpCode::ConstI32,
-                value,
-                -1,
-                -1,
-                integer->value
-            });
-
-            variables[let->name] = value;
-            continue;
-        }
-
-        if (auto* ret =
-                dynamic_cast<ReturnStmt*>(statement.get())) {
-
-            auto* binary =
-                dynamic_cast<BinaryExpr*>(
-                    ret->value.get()
-                );
-
-            if (!binary || binary->op != '+')
-                throw std::runtime_error(
-                    "Only addition supported"
-                );
-
-            auto* left =
-                dynamic_cast<VariableExpr*>(
-                    binary->left.get()
-                );
-
-            auto* right =
-                dynamic_cast<VariableExpr*>(
-                    binary->right.get()
-                );
-
-            if (!left || !right)
-                throw std::runtime_error(
-                    "Expected variables"
-                );
-
-            if (!variables.contains(left->name) ||
-                !variables.contains(right->name)) {
-                throw std::runtime_error(
-                    "Undefined variable in IR"
-                );
-            }
-
-            ValueId result = ir.createValue();
-
-            ir.instructions.push_back({
-                OpCode::AddI32,
-                result,
-                variables[left->name],
-                variables[right->name],
-                0
-            });
-
-            ir.instructions.push_back({
-                OpCode::ReturnI32,
-                -1,
-                result,
-                -1,
-                0
-            });
-        }
+        lowerStatement(*statement, ir);
     }
 
     return ir;
+}
+
+void IRLowerer::lowerStatement(
+    const Statement& statement,
+    IRFunction& ir
+) {
+    if (auto* letStmt = dynamic_cast<const LetStmt*>(&statement)) {
+        ValueId value = lowerExpr(*letStmt->initializer, ir);
+        variables[letStmt->name] = value;
+        return;
+    }
+
+    if (auto* returnStmt = dynamic_cast<const ReturnStmt*>(&statement)) {
+        ValueId value = lowerExpr(*returnStmt->value, ir);
+
+        ir.instructions.push_back({
+            OpCode::ReturnI32,
+            -1,
+            value,
+            -1,
+            0
+        });
+
+        return;
+    }
+
+    throw std::runtime_error("Unsupported statement");
+}
+
+ValueId IRLowerer::lowerExpr(
+    const Expr& expr,
+    IRFunction& ir
+) {
+    if (auto* integer =
+            dynamic_cast<const IntegerExpr*>(&expr)) {
+
+        ValueId dst = nextValue++;
+
+        ir.instructions.push_back({
+            OpCode::ConstI32,
+            dst,
+            -1,
+            -1,
+            integer->value
+        });
+
+        return dst;
+    }
+
+    if (auto* variable =
+            dynamic_cast<const VariableExpr*>(&expr)) {
+
+        auto it = variables.find(variable->name);
+
+        if (it == variables.end()) {
+            throw std::runtime_error(
+                "Unknown variable: " + variable->name
+            );
+        }
+
+        return it->second;
+    }
+
+    if (auto* binary =
+            dynamic_cast<const BinaryExpr*>(&expr)) {
+
+        ValueId left = lowerExpr(*binary->left, ir);
+        ValueId right = lowerExpr(*binary->right, ir);
+
+        ValueId dst = nextValue++;
+
+        OpCode opcode;
+
+        switch (binary->op) {
+            case '+':
+                opcode = OpCode::AddI32;
+                break;
+
+            case '-':
+                opcode = OpCode::SubI32;
+                break;
+
+            case '*':
+                opcode = OpCode::MulI32;
+                break;
+
+            case '/':
+                opcode = OpCode::DivI32;
+                break;
+
+            default:
+                throw std::runtime_error(
+                    "Unsupported binary operator"
+                );
+        }
+
+        ir.instructions.push_back({
+            opcode,
+            dst,
+            left,
+            right,
+            0
+        });
+
+        return dst;
+    }
+
+    throw std::runtime_error("Unsupported expression");
 }

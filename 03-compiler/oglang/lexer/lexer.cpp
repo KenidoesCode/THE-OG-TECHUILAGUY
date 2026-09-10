@@ -1,119 +1,269 @@
 #include "lexer.hpp"
+
 #include <cctype>
 #include <stdexcept>
 
-Lexer::Lexer(const std::string& source) : source(source) {}
+Lexer::Lexer(const std::string& source)
+    : source(source) {}
 
 char Lexer::peek() const {
-    if (pos >= source.size()) return '\0';
-    return source[pos];
+    if (position >= source.size())
+        return '\0';
+
+    return source[position];
 }
 
 char Lexer::advance() {
     char c = peek();
-    if (c == '\0') return c;
 
-    pos++;
+    if (c == '\0')
+        return c;
+
+    ++position;
 
     if (c == '\n') {
-        line++;
+        ++line;
         column = 1;
     } else {
-        column++;
+        ++column;
     }
 
     return c;
 }
 
 void Lexer::skipWhitespace() {
-    while (std::isspace(static_cast<unsigned char>(peek())))
+    while (std::isspace(
+        static_cast<unsigned char>(peek()))) {
         advance();
-}
-
-Token Lexer::identifierOrKeyword() {
-    int startLine = line;
-    int startColumn = column;
-
-    std::string text;
-
-    while (std::isalnum(static_cast<unsigned char>(peek())) || peek() == '_')
-        text += advance();
-
-    if (text == "fn")     return {TokenKind::Fn, text, startLine, startColumn};
-    if (text == "return") return {TokenKind::Return, text, startLine, startColumn};
-    if (text == "let")   return {TokenKind::Let, text, startLine, startColumn};
-    if (text == "i32")   return {TokenKind::TypeI32, text, startLine, startColumn};
-
-    return {TokenKind::Identifier, text, startLine, startColumn};
-}
-
-Token Lexer::integer() {
-    int startLine = line;
-    int startColumn = column;
-
-    std::string text;
-
-    while (std::isdigit(static_cast<unsigned char>(peek())))
-        text += advance();
-
-    return {TokenKind::Integer, text, startLine, startColumn};
+    }
 }
 
 std::vector<Token> Lexer::tokenize() {
     std::vector<Token> tokens;
 
-    while (true) {
+    while (peek() != '\0') {
         skipWhitespace();
 
-        int l = line;
-        int c = column;
-        char ch = peek();
-
-        if (ch == '\0') {
-            tokens.push_back({TokenKind::End, "", l, c});
+        if (peek() == '\0')
             break;
-        }
 
-        if (std::isalpha(static_cast<unsigned char>(ch)) || ch == '_') {
-            tokens.push_back(identifierOrKeyword());
+        int tokenLine = line;
+        int tokenColumn = column;
+
+        char c = peek();
+
+        if (std::isalpha(
+                static_cast<unsigned char>(c)) ||
+            c == '_') {
+
+            std::string text;
+
+            while (
+                std::isalnum(
+                    static_cast<unsigned char>(peek())) ||
+                peek() == '_'
+            ) {
+                text += advance();
+            }
+
+            TokenKind kind;
+
+            if (text == "fn")
+                kind = TokenKind::Fn;
+            else if (text == "return")
+                kind = TokenKind::Return;
+            else if (text == "let")
+                kind = TokenKind::Let;
+            else if (text == "if")
+                kind = TokenKind::If;
+            else if (text == "else")
+                kind = TokenKind::Else;
+            else if (text == "i32")
+                kind = TokenKind::TypeI32;
+            else
+                kind = TokenKind::Identifier;
+
+            tokens.push_back({
+                kind,
+                text,
+                tokenLine,
+                tokenColumn
+            });
+
             continue;
         }
 
-        if (std::isdigit(static_cast<unsigned char>(ch))) {
-            tokens.push_back(integer());
+        if (std::isdigit(
+                static_cast<unsigned char>(c))) {
+
+            std::string text;
+
+            while (std::isdigit(
+                static_cast<unsigned char>(peek()))) {
+                text += advance();
+            }
+
+            tokens.push_back({
+                TokenKind::Integer,
+                text,
+                tokenLine,
+                tokenColumn
+            });
+
             continue;
         }
 
-        if (ch == '-' && pos + 1 < source.size() && source[pos + 1] == '>') {
-            advance();
-            advance();
-            tokens.push_back({TokenKind::Arrow, "->", l, c});
-            continue;
-        }
-
+        std::string text;
         TokenKind kind;
 
-        switch (ch) {
-            case '(': kind = TokenKind::LParen; break;
-            case ')': kind = TokenKind::RParen; break;
-            case '{': kind = TokenKind::LBrace; break;
-            case '}': kind = TokenKind::RBrace; break;
-            case ':': kind = TokenKind::Colon; break;
-            case ';': kind = TokenKind::Semicolon; break;
-            case '=': kind = TokenKind::Equal; break;
-            case '+': kind = TokenKind::Plus; break;
+        switch (c) {
+
+            case '(':
+                text = "(";
+                kind = TokenKind::LParen;
+                advance();
+                break;
+
+            case ')':
+                text = ")";
+                kind = TokenKind::RParen;
+                advance();
+                break;
+
+            case '{':
+                text = "{";
+                kind = TokenKind::LBrace;
+                advance();
+                break;
+
+            case '}':
+                text = "}";
+                kind = TokenKind::RBrace;
+                advance();
+                break;
+
+            case ':':
+                text = ":";
+                kind = TokenKind::Colon;
+                advance();
+                break;
+
+            case ';':
+                text = ";";
+                kind = TokenKind::Semicolon;
+                advance();
+                break;
+
+            case '+':
+                text = "+";
+                kind = TokenKind::Plus;
+                advance();
+                break;
+
+            case '*':
+                text = "*";
+                kind = TokenKind::Star;
+                advance();
+                break;
+
+            case '/':
+                text = "/";
+                kind = TokenKind::Slash;
+                advance();
+                break;
+
+            case '-':
+                advance();
+
+                if (peek() == '>') {
+                    advance();
+                    text = "->";
+                    kind = TokenKind::Arrow;
+                } else {
+                    text = "-";
+                    kind = TokenKind::Minus;
+                }
+
+                break;
+
+            case '=':
+                advance();
+
+                if (peek() == '=') {
+                    advance();
+                    text = "==";
+                    kind = TokenKind::EqualEqual;
+                } else {
+                    text = "=";
+                    kind = TokenKind::Equal;
+                }
+
+                break;
+
+            case '!':
+                advance();
+
+                if (peek() == '=') {
+                    advance();
+                    text = "!=";
+                    kind = TokenKind::NotEqual;
+                } else {
+                    throw std::runtime_error(
+                        "Unexpected '!'; expected !="
+                    );
+                }
+
+                break;
+
+            case '>':
+                advance();
+
+                if (peek() == '=') {
+                    advance();
+                    text = ">=";
+                    kind = TokenKind::GreaterEqual;
+                } else {
+                    text = ">";
+                    kind = TokenKind::Greater;
+                }
+
+                break;
+
+            case '<':
+                advance();
+
+                if (peek() == '=') {
+                    advance();
+                    text = "<=";
+                    kind = TokenKind::LessEqual;
+                } else {
+                    text = "<";
+                    kind = TokenKind::Less;
+                }
+
+                break;
+
             default:
                 throw std::runtime_error(
-                    "Invalid character at line " +
-                    std::to_string(line) +
-                    ", column " +
-                    std::to_string(column)
+                    "Unexpected character: " +
+                    std::string(1, c)
                 );
         }
 
-        std::string text(1, advance());
-        tokens.push_back({kind, text, l, c});
+        tokens.push_back({
+            kind,
+            text,
+            tokenLine,
+            tokenColumn
+        });
     }
+
+    tokens.push_back({
+        TokenKind::End,
+        "",
+        line,
+        column
+    });
 
     return tokens;
 }

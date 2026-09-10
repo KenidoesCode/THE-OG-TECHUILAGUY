@@ -2,6 +2,7 @@
 
 #include "../ast/ast.hpp"
 #include "../lexer/token.hpp"
+
 #include <vector>
 
 class Parser {
@@ -16,10 +17,19 @@ private:
 
     const Token& peek() const;
     const Token& advance();
+
     bool match(TokenKind kind);
     const Token& expect(TokenKind kind);
 
     std::unique_ptr<Statement> parseStatement();
+    std::unique_ptr<Statement> parseIf();
+
     std::unique_ptr<Expr> parseExpression();
+    std::unique_ptr<Expr> parseEquality();
+    std::unique_ptr<Expr> parseComparison();
+    std::unique_ptr<Expr> parseAdditive();
+    std::unique_ptr<Expr> parseMultiplicative();
     std::unique_ptr<Expr> parsePrimary();
+
+    std::vector<std::unique_ptr<Statement>> parseBlock();
 };
