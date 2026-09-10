@@ -1,5 +1,7 @@
 .text
 .global main
 main:
-    movl $42, %eax
+    movl $20, %eax
+    movl $22, %ecx
+    addl %ecx, %eax
     ret

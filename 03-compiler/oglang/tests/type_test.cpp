@@ -1,13 +1,11 @@
 #include "../lexer/lexer.hpp"
 #include "../parser/parser.hpp"
 #include "../types/type_checker.hpp"
-#include "../ir/lower.hpp"
-#include "../codegen/x86_64.hpp"
 
-#include <fstream>
 #include <iostream>
 
 int main() {
+
     std::string source =
         "fn main() -> i32 { "
         "let x: i32 = 20; "
@@ -24,15 +22,5 @@ int main() {
     TypeChecker checker;
     checker.check(function);
 
-    IRLowerer lowerer;
-    IRFunction ir = lowerer.lower(function);
-
-    X86Codegen codegen;
-    std::string assembly = codegen.generate(ir);
-
-    std::ofstream out("main.s");
-    out << assembly;
-    out.close();
-
-    std::cout << assembly;
+    std::cout << "Type checking: PASS\n";
 }

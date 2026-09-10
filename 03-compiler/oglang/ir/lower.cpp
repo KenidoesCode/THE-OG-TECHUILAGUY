@@ -1,4 +1,5 @@
 #include "lower.hpp"
+
 #include <stdexcept>
 #include <string>
 
@@ -13,13 +14,17 @@ IRFunction IRLowerer::lower(const Function& function) {
 
     for (const auto& statement : function.body) {
 
-        if (auto* let = dynamic_cast<LetStmt*>(statement.get())) {
+        if (auto* let =
+                dynamic_cast<LetStmt*>(statement.get())) {
+
             auto* integer =
-                dynamic_cast<IntegerExpr*>(let->initializer.get());
+                dynamic_cast<IntegerExpr*>(
+                    let->initializer.get()
+                );
 
             if (!integer)
                 throw std::runtime_error(
-                    "Only integer initializers supported"
+                    "Unsupported initializer"
                 );
 
             ir.instructions.push_back({
@@ -27,7 +32,7 @@ IRFunction IRLowerer::lower(const Function& function) {
                 let->name,
                 "",
                 "",
-                static_cast<int32_t>(integer->value)
+                integer->value
             });
 
             continue;
@@ -36,60 +41,46 @@ IRFunction IRLowerer::lower(const Function& function) {
         if (auto* ret =
                 dynamic_cast<ReturnStmt*>(statement.get())) {
 
-            if (auto* integer =
-                    dynamic_cast<IntegerExpr*>(ret->value.get())) {
+            auto* binary =
+                dynamic_cast<BinaryExpr*>(ret->value.get());
 
-                ir.instructions.push_back({
-                    OpCode::ConstI32,
-                    "%return",
-                    "",
-                    "",
-                    static_cast<int32_t>(integer->value)
-                });
+            if (!binary || binary->op != '+')
+                throw std::runtime_error(
+                    "Unsupported return expression"
+                );
 
-                ir.instructions.push_back({
-                    OpCode::ReturnI32,
-                    "",
-                    "%return",
-                    "",
-                    0
-                });
+            auto* left =
+                dynamic_cast<VariableExpr*>(
+                    binary->left.get()
+                );
 
-                continue;
-            }
+            auto* right =
+                dynamic_cast<VariableExpr*>(
+                    binary->right.get()
+                );
 
-            if (auto* binary =
-                    dynamic_cast<BinaryExpr*>(ret->value.get())) {
+            if (!left || !right)
+                throw std::runtime_error(
+                    "Expected variables"
+                );
 
-                auto* left =
-                    dynamic_cast<VariableExpr*>(binary->left.get());
+            std::string result = newTemp();
 
-                auto* right =
-                    dynamic_cast<VariableExpr*>(binary->right.get());
+            ir.instructions.push_back({
+                OpCode::AddI32,
+                result,
+                left->name,
+                right->name,
+                0
+            });
 
-                if (!left || !right || binary->op != '+')
-                    throw std::runtime_error(
-                        "Unsupported binary expression"
-                    );
-
-                std::string result = newTemp();
-
-                ir.instructions.push_back({
-                    OpCode::AddI32,
-                    result,
-                    left->name,
-                    right->name,
-                    0
-                });
-
-                ir.instructions.push_back({
-                    OpCode::ReturnI32,
-                    "",
-                    result,
-                    "",
-                    0
-                });
-            }
+            ir.instructions.push_back({
+                OpCode::ReturnI32,
+                "",
+                result,
+                "",
+                0
+            });
         }
     }
 

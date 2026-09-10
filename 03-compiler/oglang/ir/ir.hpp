@@ -12,9 +12,11 @@ enum class OpCode {
 
 struct IRInstruction {
     OpCode opcode;
+
     std::string destination;
     std::string left;
     std::string right;
+
     int32_t value = 0;
 };
 

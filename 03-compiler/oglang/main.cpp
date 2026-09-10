@@ -1,12 +1,11 @@
 #include "lexer/lexer.hpp"
 #include "parser/parser.hpp"
-#include "semantic/analyzer.hpp"
+#include "types/type_checker.hpp"
 #include "ir/lower.hpp"
 #include "codegen/x86_64.hpp"
 
 #include <fstream>
 #include <iostream>
-#include <sstream>
 
 int main() {
     std::ifstream file("main.og");
@@ -16,26 +15,38 @@ int main() {
         return 1;
     }
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
+    std::string source(
+        (std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>()
+    );
 
-    Lexer lexer(buffer.str());
-    auto tokens = lexer.tokenize();
+    try {
+        Lexer lexer(source);
+        auto tokens = lexer.tokenize();
 
-    Parser parser(tokens);
-    Function function = parser.parseFunction();
+        Parser parser(tokens);
+        Function function = parser.parseFunction();
 
-    SemanticAnalyzer analyzer;
-    analyzer.analyze(function);
+        TypeChecker checker;
+        checker.check(function);
 
-    IRLowerer lowerer;
-    IRFunction ir = lowerer.lower(function);
+        IRLowerer lowerer;
+        IRFunction ir = lowerer.lower(function);
 
-    X86Codegen codegen;
-    std::string assembly = codegen.generate(ir);
+        X86Codegen codegen;
+        std::string assembly = codegen.generate(ir);
 
-    std::ofstream output("main.s");
-    output << assembly;
+        std::ofstream output("main.s");
+        output << assembly;
 
-    std::cout << "Compiled main.og -> main.s\n";
+        std::cout << "OGLang compilation successful.\n";
+        std::cout << "Generated main.s\n";
+
+    } catch (const std::exception& e) {
+        std::cerr << "Compilation error: "
+                  << e.what() << '\n';
+        return 1;
+    }
+
+    return 0;
 }

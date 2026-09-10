@@ -12,47 +12,91 @@ const Token& Parser::advance() {
     return tokens[current++];
 }
 
-bool Parser::check(TokenType type) const {
-    return peek().type == type;
+bool Parser::match(TokenKind kind) {
+    if (peek().kind == kind) {
+        advance();
+        return true;
+    }
+    return false;
 }
 
-const Token& Parser::expect(TokenType type) {
-    if (!check(type))
-        throw std::runtime_error(
-            "Unexpected token: " + peek().lexeme
-        );
+const Token& Parser::expect(TokenKind kind) {
+    if (peek().kind != kind)
+        throw std::runtime_error("Unexpected token: " + peek().text);
 
     return advance();
 }
 
-std::unique_ptr<Expr> Parser::parsePrimary() {
-    if (check(TokenType::Integer)) {
-        auto token = advance();
+Function Parser::parseFunction() {
+    expect(TokenKind::Fn);
 
-        return std::make_unique<IntegerExpr>(
-            std::stoll(token.lexeme)
+    std::string name = expect(TokenKind::Identifier).text;
+
+    expect(TokenKind::LParen);
+    expect(TokenKind::RParen);
+
+    expect(TokenKind::Arrow);
+
+    std::string returnType;
+
+    if (match(TokenKind::TypeI32))
+        returnType = "i32";
+    else
+        throw std::runtime_error("Expected return type");
+
+    expect(TokenKind::LBrace);
+
+    Function function{name, returnType, {}};
+
+    while (peek().kind != TokenKind::RBrace &&
+           peek().kind != TokenKind::End) {
+        function.body.push_back(parseStatement());
+    }
+
+    expect(TokenKind::RBrace);
+
+    return function;
+}
+
+std::unique_ptr<Statement> Parser::parseStatement() {
+    if (match(TokenKind::Let)) {
+        std::string name = expect(TokenKind::Identifier).text;
+
+        expect(TokenKind::Colon);
+
+        std::string type;
+
+        if (match(TokenKind::TypeI32))
+            type = "i32";
+        else
+            throw std::runtime_error("Expected variable type");
+
+        expect(TokenKind::Equal);
+
+        auto initializer = parseExpression();
+
+        expect(TokenKind::Semicolon);
+
+        return std::make_unique<LetStmt>(
+            name, type, std::move(initializer)
         );
     }
 
-    if (check(TokenType::Identifier)) {
-        auto token = advance();
+    if (match(TokenKind::Return)) {
+        auto value = parseExpression();
 
-        return std::make_unique<VariableExpr>(
-            token.lexeme
-        );
+        expect(TokenKind::Semicolon);
+
+        return std::make_unique<ReturnStmt>(std::move(value));
     }
 
-    throw std::runtime_error(
-        "Expected expression, got: " + peek().lexeme
-    );
+    throw std::runtime_error("Unknown statement");
 }
 
 std::unique_ptr<Expr> Parser::parseExpression() {
     auto left = parsePrimary();
 
-    while (check(TokenType::Plus)) {
-        advance();
-
+    while (match(TokenKind::Plus)) {
         auto right = parsePrimary();
 
         left = std::make_unique<BinaryExpr>(
@@ -65,67 +109,16 @@ std::unique_ptr<Expr> Parser::parseExpression() {
     return left;
 }
 
-std::unique_ptr<Stmt> Parser::parseStatement() {
-    if (check(TokenType::Let)) {
-        advance();
-
-        const Token& name = expect(TokenType::Identifier);
-
-        expect(TokenType::Colon);
-        expect(TokenType::TypeI32);
-        expect(TokenType::Equals);
-
-        auto initializer = parseExpression();
-
-        expect(TokenType::Semicolon);
-
-        return std::make_unique<LetStmt>(
-            name.lexeme,
-            "i32",
-            std::move(initializer)
-        );
+std::unique_ptr<Expr> Parser::parsePrimary() {
+    if (peek().kind == TokenKind::Integer) {
+        int value = std::stoi(advance().text);
+        return std::make_unique<IntegerExpr>(value);
     }
 
-    if (check(TokenType::Return)) {
-        advance();
-
-        auto value = parseExpression();
-
-        expect(TokenType::Semicolon);
-
-        return std::make_unique<ReturnStmt>(
-            std::move(value)
-        );
+    if (peek().kind == TokenKind::Identifier) {
+        std::string name = advance().text;
+        return std::make_unique<VariableExpr>(name);
     }
 
-    throw std::runtime_error(
-        "Unknown statement: " + peek().lexeme
-    );
-}
-
-Function Parser::parseFunction() {
-    expect(TokenType::Fn);
-
-    const Token& name = expect(TokenType::Identifier);
-
-    expect(TokenType::LeftParen);
-    expect(TokenType::RightParen);
-
-    expect(TokenType::Arrow);
-    expect(TokenType::TypeI32);
-
-    expect(TokenType::LeftBrace);
-
-    Function function;
-    function.name = name.lexeme;
-    function.returnType = "i32";
-
-    while (!check(TokenType::RightBrace)) {
-        function.body.push_back(parseStatement());
-    }
-
-    expect(TokenType::RightBrace);
-    expect(TokenType::EndOfFile);
-
-    return function;
+    throw std::runtime_error("Expected expression");
 }

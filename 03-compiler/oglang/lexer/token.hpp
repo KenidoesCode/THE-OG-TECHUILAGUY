@@ -1,34 +1,21 @@
 #pragma once
-
-#include <cstddef>
 #include <string>
 
-enum class TokenType {
-    Fn,
-    Return,
-    Let,
+enum class TokenKind {
+    Fn, Return, Let,
     TypeI32,
-
-    Identifier,
-    Integer,
-
+    Identifier, Integer,
     Arrow,
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-
-    Colon,
-    Semicolon,
-    Equals,
-    Plus,
-
-    EndOfFile,
-    Invalid
+    LParen, RParen,
+    LBrace, RBrace,
+    Colon, Semicolon,
+    Equal, Plus,
+    End
 };
 
 struct Token {
-    TokenType type;
-    std::string lexeme;
-    std::size_t position;
+    TokenKind kind;
+    std::string text;
+    int line;
+    int column;
 };

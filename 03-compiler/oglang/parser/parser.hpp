@@ -1,8 +1,7 @@
 #pragma once
 
-#include "../lexer/token.hpp"
 #include "../ast/ast.hpp"
-#include <memory>
+#include "../lexer/token.hpp"
 #include <vector>
 
 class Parser {
@@ -13,14 +12,14 @@ public:
 
 private:
     const std::vector<Token>& tokens;
-    std::size_t current = 0;
+    size_t current = 0;
 
     const Token& peek() const;
     const Token& advance();
-    bool check(TokenType type) const;
-    const Token& expect(TokenType type);
+    bool match(TokenKind kind);
+    const Token& expect(TokenKind kind);
 
+    std::unique_ptr<Statement> parseStatement();
     std::unique_ptr<Expr> parseExpression();
     std::unique_ptr<Expr> parsePrimary();
-    std::unique_ptr<Stmt> parseStatement();
 };

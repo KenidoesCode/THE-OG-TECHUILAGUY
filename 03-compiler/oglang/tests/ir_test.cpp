@@ -1,12 +1,17 @@
 #include "../lexer/lexer.hpp"
 #include "../parser/parser.hpp"
-#include "../semantic/analyzer.hpp"
+#include "../types/type_checker.hpp"
 #include "../ir/lower.hpp"
+
 #include <iostream>
 
 int main() {
     std::string source =
-        "fn main() -> i32 { return 42; }";
+        "fn main() -> i32 { "
+        "let x: i32 = 20; "
+        "let y: i32 = 22; "
+        "return x + y; "
+        "}";
 
     Lexer lexer(source);
     auto tokens = lexer.tokenize();
@@ -14,15 +19,37 @@ int main() {
     Parser parser(tokens);
     Function function = parser.parseFunction();
 
-    SemanticAnalyzer analyzer;
-    analyzer.analyze(function);
+    TypeChecker checker;
+    checker.check(function);
 
     IRLowerer lowerer;
     IRFunction ir = lowerer.lower(function);
 
-    std::cout << "IR instructions: "
-              << ir.instructions.size() << '\n';
+    for (const auto& instruction : ir.instructions) {
+        switch (instruction.opcode) {
+            case OpCode::ConstI32:
+                std::cout << "CONST "
+                          << instruction.value
+                          << " -> "
+                          << instruction.destination
+                          << '\n';
+                break;
 
-    std::cout << "RETURN "
-              << ir.instructions[0].operand << '\n';
+            case OpCode::AddI32:
+                std::cout << "ADD "
+                          << instruction.left
+                          << ", "
+                          << instruction.right
+                          << " -> "
+                          << instruction.destination
+                          << '\n';
+                break;
+
+            case OpCode::ReturnI32:
+                std::cout << "RETURN "
+                          << instruction.left
+                          << '\n';
+                break;
+        }
+    }
 }

@@ -1,18 +1,28 @@
 #include "lexer.hpp"
 #include <cctype>
+#include <stdexcept>
 
-Lexer::Lexer(const std::string& source)
-    : source(source) {}
+Lexer::Lexer(const std::string& source) : source(source) {}
 
 char Lexer::peek() const {
-    if (position >= source.size())
-        return '\0';
-
-    return source[position];
+    if (pos >= source.size()) return '\0';
+    return source[pos];
 }
 
 char Lexer::advance() {
-    return source[position++];
+    char c = peek();
+    if (c == '\0') return c;
+
+    pos++;
+
+    if (c == '\n') {
+        line++;
+        column = 1;
+    } else {
+        column++;
+    }
+
+    return c;
 }
 
 void Lexer::skipWhitespace() {
@@ -20,111 +30,90 @@ void Lexer::skipWhitespace() {
         advance();
 }
 
-Token Lexer::identifier() {
-    std::size_t start = position;
+Token Lexer::identifierOrKeyword() {
+    int startLine = line;
+    int startColumn = column;
 
-    while (std::isalnum(static_cast<unsigned char>(peek())) ||
-           peek() == '_')
-        advance();
+    std::string text;
 
-    std::string text = source.substr(start, position - start);
+    while (std::isalnum(static_cast<unsigned char>(peek())) || peek() == '_')
+        text += advance();
 
-    if (text == "fn")
-        return {TokenType::Fn, text, start};
+    if (text == "fn")     return {TokenKind::Fn, text, startLine, startColumn};
+    if (text == "return") return {TokenKind::Return, text, startLine, startColumn};
+    if (text == "let")   return {TokenKind::Let, text, startLine, startColumn};
+    if (text == "i32")   return {TokenKind::TypeI32, text, startLine, startColumn};
 
-    if (text == "return")
-        return {TokenType::Return, text, start};
-
-    if (text == "let")
-        return {TokenType::Let, text, start};
-
-    if (text == "i32")
-        return {TokenType::TypeI32, text, start};
-
-    return {TokenType::Identifier, text, start};
+    return {TokenKind::Identifier, text, startLine, startColumn};
 }
 
 Token Lexer::integer() {
-    std::size_t start = position;
+    int startLine = line;
+    int startColumn = column;
+
+    std::string text;
 
     while (std::isdigit(static_cast<unsigned char>(peek())))
-        advance();
+        text += advance();
 
-    return {
-        TokenType::Integer,
-        source.substr(start, position - start),
-        start
-    };
+    return {TokenKind::Integer, text, startLine, startColumn};
 }
 
 std::vector<Token> Lexer::tokenize() {
     std::vector<Token> tokens;
 
-    while (position < source.size()) {
+    while (true) {
         skipWhitespace();
 
-        if (position >= source.size())
+        int l = line;
+        int c = column;
+        char ch = peek();
+
+        if (ch == '\0') {
+            tokens.push_back({TokenKind::End, "", l, c});
             break;
+        }
 
-        std::size_t start = position;
-        char c = peek();
-
-        if (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
-            tokens.push_back(identifier());
+        if (std::isalpha(static_cast<unsigned char>(ch)) || ch == '_') {
+            tokens.push_back(identifierOrKeyword());
             continue;
         }
 
-        if (std::isdigit(static_cast<unsigned char>(c))) {
+        if (std::isdigit(static_cast<unsigned char>(ch))) {
             tokens.push_back(integer());
             continue;
         }
 
-        advance();
-
-        switch (c) {
-            case '(':
-                tokens.push_back({TokenType::LeftParen, "(", start});
-                break;
-            case ')':
-                tokens.push_back({TokenType::RightParen, ")", start});
-                break;
-            case '{':
-                tokens.push_back({TokenType::LeftBrace, "{", start});
-                break;
-            case '}':
-                tokens.push_back({TokenType::RightBrace, "}", start});
-                break;
-            case ':':
-                tokens.push_back({TokenType::Colon, ":", start});
-                break;
-            case ';':
-                tokens.push_back({TokenType::Semicolon, ";", start});
-                break;
-
-            case '=':
-                tokens.push_back({TokenType::Equals, "=", start});
-                break;
-
-            case '+':
-                tokens.push_back({TokenType::Plus, "+", start});
-                break;
-            case '-':
-                if (peek() == '>') {
-                    advance();
-                    tokens.push_back({TokenType::Arrow, "->", start});
-                } else {
-                    tokens.push_back({TokenType::Invalid, "-", start});
-                }
-                break;
-            default:
-                tokens.push_back({
-                    TokenType::Invalid,
-                    std::string(1, c),
-                    start
-                });
+        if (ch == '-' && pos + 1 < source.size() && source[pos + 1] == '>') {
+            advance();
+            advance();
+            tokens.push_back({TokenKind::Arrow, "->", l, c});
+            continue;
         }
+
+        TokenKind kind;
+
+        switch (ch) {
+            case '(': kind = TokenKind::LParen; break;
+            case ')': kind = TokenKind::RParen; break;
+            case '{': kind = TokenKind::LBrace; break;
+            case '}': kind = TokenKind::RBrace; break;
+            case ':': kind = TokenKind::Colon; break;
+            case ';': kind = TokenKind::Semicolon; break;
+            case '=': kind = TokenKind::Equal; break;
+            case '+': kind = TokenKind::Plus; break;
+            default:
+                throw std::runtime_error(
+                    "Invalid character at line " +
+                    std::to_string(line) +
+                    ", column " +
+                    std::to_string(column)
+                );
+        }
+
+        std::string text(1, advance());
+        tokens.push_back({kind, text, l, c});
     }
 
-    tokens.push_back({TokenType::EndOfFile, "", position});
     return tokens;
 }
