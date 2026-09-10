@@ -1,16 +1,12 @@
 #include "lower.hpp"
 
 #include <stdexcept>
-#include <string>
+#include <unordered_map>
 
 IRFunction IRLowerer::lower(const Function& function) {
     IRFunction ir;
 
-    int temporary = 0;
-
-    auto newTemp = [&]() {
-        return "%t" + std::to_string(temporary++);
-    };
+    std::unordered_map<std::string, ValueId> variables;
 
     for (const auto& statement : function.body) {
 
@@ -24,17 +20,20 @@ IRFunction IRLowerer::lower(const Function& function) {
 
             if (!integer)
                 throw std::runtime_error(
-                    "Unsupported initializer"
+                    "Only integer initializers supported"
                 );
+
+            ValueId value = ir.createValue();
 
             ir.instructions.push_back({
                 OpCode::ConstI32,
-                let->name,
-                "",
-                "",
+                value,
+                -1,
+                -1,
                 integer->value
             });
 
+            variables[let->name] = value;
             continue;
         }
 
@@ -42,11 +41,13 @@ IRFunction IRLowerer::lower(const Function& function) {
                 dynamic_cast<ReturnStmt*>(statement.get())) {
 
             auto* binary =
-                dynamic_cast<BinaryExpr*>(ret->value.get());
+                dynamic_cast<BinaryExpr*>(
+                    ret->value.get()
+                );
 
             if (!binary || binary->op != '+')
                 throw std::runtime_error(
-                    "Unsupported return expression"
+                    "Only addition supported"
                 );
 
             auto* left =
@@ -64,21 +65,28 @@ IRFunction IRLowerer::lower(const Function& function) {
                     "Expected variables"
                 );
 
-            std::string result = newTemp();
+            if (!variables.contains(left->name) ||
+                !variables.contains(right->name)) {
+                throw std::runtime_error(
+                    "Undefined variable in IR"
+                );
+            }
+
+            ValueId result = ir.createValue();
 
             ir.instructions.push_back({
                 OpCode::AddI32,
                 result,
-                left->name,
-                right->name,
+                variables[left->name],
+                variables[right->name],
                 0
             });
 
             ir.instructions.push_back({
                 OpCode::ReturnI32,
-                "",
+                -1,
                 result,
-                "",
+                -1,
                 0
             });
         }

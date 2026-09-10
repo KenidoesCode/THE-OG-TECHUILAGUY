@@ -52,4 +52,6 @@ int main() {
                 break;
         }
     }
+
+    std::cout << "IR: PASS\n";
 }
