@@ -1,0 +1,8 @@
+
+# Build artifacts
+03-compiler/oglang/ogc
+03-compiler/oglang/main
+03-compiler/oglang/type-test
+03-compiler/oglang/ir-test
+03-compiler/oglang/codegen-test
+03-compiler/oglang/main.s
