@@ -7,16 +7,19 @@
 #include "codegen/register_allocator.hpp"
 #include "codegen/x86_64.hpp"
 
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <string>
 
-int main() {
-    std::ifstream file("main.og");
+int main(int argc, char** argv) {
+    std::string sourcePath = argc > 1 ? argv[1] : "main.og";
+
+    std::ifstream file(sourcePath);
 
     if (!file) {
-        std::cerr << "Cannot open main.og\n";
+        std::cerr << "Cannot open " << sourcePath << "\n";
         return 1;
     }
 
@@ -59,9 +62,24 @@ int main() {
         }
 
         output << assembly;
+        output.close();
 
         std::cout << "OGLang compilation successful.\n";
         std::cout << "Generated main.s\n";
+
+        int asStatus = std::system("as --64 main.s -o main.o");
+        if (asStatus != 0) {
+            std::cerr << "Assembler failed\n";
+            return 1;
+        }
+
+        int ldStatus = std::system("ld main.o -o main -e _start");
+        if (ldStatus != 0) {
+            std::cerr << "Linker failed\n";
+            return 1;
+        }
+
+        std::cout << "Generated native executable: main\n";
 
     } catch (const std::exception& e) {
         std::cerr << "Compilation error: "

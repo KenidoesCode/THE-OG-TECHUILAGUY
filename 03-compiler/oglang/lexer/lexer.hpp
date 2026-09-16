@@ -12,7 +12,7 @@ public:
     std::vector<Token> tokenize();
 
 private:
-    const std::string& source;
+    std::string source;
     size_t position = 0;
     int line = 1;
     int column = 1;

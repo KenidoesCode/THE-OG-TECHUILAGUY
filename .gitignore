@@ -1,8 +1,18 @@
 
 # Build artifacts
 03-compiler/oglang/ogc
+03-compiler/oglang/oglang
 03-compiler/oglang/main
+03-compiler/oglang/main.o
+03-compiler/oglang/main.s
 03-compiler/oglang/type-test
 03-compiler/oglang/ir-test
 03-compiler/oglang/codegen-test
-03-compiler/oglang/main.s
+03-compiler/oglang/tests/unit_tests_bin
+
+# Object files, linked binaries, disk images, emulator logs
+*.o
+*.iso
+22-os/techuilaguy-os
+22-os/qemu.log
+22-os/iso/

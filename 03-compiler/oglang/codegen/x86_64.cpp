@@ -22,7 +22,15 @@ std::string X86Codegen::generate(
     };
 
     out << ".text\n";
+    out << ".global _start\n";
     out << ".global " << ir.name << "\n";
+    out << "\n";
+    out << "_start:\n";
+    out << "    call " << ir.name << "\n";
+    out << "    movl %eax, %edi\n";
+    out << "    movl $60, %eax\n";
+    out << "    syscall\n";
+    out << "\n";
     out << ir.name << ":\n";
 
     for (const auto& inst : ir.instructions) {
