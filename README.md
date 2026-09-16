@@ -43,21 +43,42 @@ Consumer of abstractions → Builder → Designer → Researcher → Ecosystem
 
 ## ⚙️ OGLang — the first deep system
 
-A memory-safe, PQC-ready systems language, built alongside its own compiler.
+A systems language, built alongside its own compiler. Memory safety and PQC
+integration are design targets, not yet implemented — see `spec/OG_LANG_SPEC_V0.1.md`.
 
 ```rust
 fn main() -> i32 {
-    let x: i32 = 20;
-    let y: i32 = 22;
-    return x + y;
+    let x: i32 = 10 + 20 * 3;
+    return x;
 }
 ```
 
 ```
-Lexer → Parser → AST → Type Checker → IR → x86-64 Codegen → Native Binary → CPU
+Lexer → Parser → AST → Type Checker → IR → Liveness/Interference →
+Register Allocation → x86-64 Codegen → Assembler → Linker → Native ELF → CPU
 ```
 
-✅ **Currently compiles and runs — returns `42`.** The number doesn't matter; the *full pipeline* does.
+**Status: PROTOTYPE.** Verified end-to-end: `ogc` compiles this program to a
+linked x86-64 ELF executable that a Linux process loader actually runs,
+exiting with code `70` (`10 + 20 * 3`) — checked by
+`03-compiler/oglang/tests/e2e_test.sh`, not just inspected by hand. Frontend
+and register allocation are also covered by assertion-based tests in
+`03-compiler/oglang/tests/unit_test.sh`. Division, functions with arguments,
+control flow codegen, and calling conventions are not yet implemented.
+
+## 🖥️ Techuilaguy OS — second deep system
+
+An x86 (32-bit) freestanding kernel prototype in `22-os/`.
+
+**Status: PROTOTYPE.** Boots under QEMU (Multiboot-compliant), reaches
+kernel entry, brings up a physical frame allocator, a real IDT with CPU
+exception handlers, the PIC, a scheduler and syscall-ABI foundation, a VFS
+foundation, and a capability-security foundation — and exercises a live
+IRQ0 hardware interrupt path. All of this is checked by an automated test
+(`22-os/tests/boot_test.sh`) that boots the kernel headlessly and asserts on
+its serial console output, rather than only checking that a binary exists.
+No userspace, drivers beyond the timer/PIC, or filesystem are implemented
+yet — see `22-os/README.md`.
 
 ## 🧩 Domains
 
@@ -81,10 +102,11 @@ Lexer → Parser → AST → Type Checker → IR → x86-64 Codegen → Native B
 ## 🗺️ Roadmap
 
 - [x] Repository + OGLang v0.1 spec
-- [x] Lexer → Parser → AST → Type Checker → IR → x86-64 → Native binary
-- [ ] Register allocation, CFG, functions, calling conventions
+- [x] Lexer → Parser → AST → Type Checker → IR → Register Allocation → x86-64 → linked native ELF executable, verified by an end-to-end test
+- [ ] Division, function calls/arguments, control-flow codegen, calling conventions
 - [ ] Ownership, borrowing, generics, traits, safe concurrency
-- [ ] **Techuilaguy OS** — boot, kernel, scheduler, drivers, networking
+- [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, scheduler foundation, syscall ABI foundation, VFS foundation, security foundation (verified by an automated boot test)
+- [ ] Techuilaguy OS — userspace, drivers beyond timer/PIC, filesystem, networking
 - [ ] Techuilaguy L1, Storage, Cloud, AI, Quantum, Space Systems
 
 ## 🔐 Principles
