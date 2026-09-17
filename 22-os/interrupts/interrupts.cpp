@@ -3,6 +3,7 @@
 #include "../interrupts/pic.hpp"
 #include "../scheduler/pit.hpp"
 #include "../scheduler/scheduler.hpp"
+#include "../drivers/keyboard.hpp"
 
 struct IDTEntry {
     uint16_t offset_low;
@@ -209,6 +210,8 @@ extern "C" uint32_t interrupt_handler(InterruptFrame* frame) {
         if (frame->interrupt_number == TIMER_VECTOR) {
             pit_tick();
             nextEsp = scheduler_on_timer_tick(currentEsp);
+        } else if (frame->interrupt_number == KEYBOARD_VECTOR) {
+            keyboard_on_irq();
         }
 
         // Hardware acknowledgement is intentionally separate from, and

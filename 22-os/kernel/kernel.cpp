@@ -8,6 +8,7 @@
 #include "../syscalls/syscalls.hpp"
 #include "../vfs/vfs.hpp"
 #include "../security/security.hpp"
+#include "../drivers/keyboard.hpp"
 
 namespace {
 
@@ -197,6 +198,8 @@ extern "C" void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
 
     pic_unmask_irq(0);
     serial_write("[TEST] IRQ0 unmasked\n");
+
+    keyboard_init();
 
     // Printed before, not after, enabling interrupts: once the first
     // timer tick arrives, control permanently leaves kernel_main's

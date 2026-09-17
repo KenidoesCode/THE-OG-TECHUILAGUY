@@ -20,6 +20,8 @@ SOURCES := \
     interrupts/isr.S \
     scheduler/scheduler.cpp \
     scheduler/pit.cpp \
+    drivers/keyboard.cpp \
+    drivers/keyboard_translation.cpp \
     syscalls/syscalls.cpp \
     vfs/vfs.cpp \
     security/security.cpp

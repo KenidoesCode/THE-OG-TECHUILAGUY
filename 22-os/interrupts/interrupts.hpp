@@ -5,6 +5,7 @@
 // Hardware IRQs are remapped to start at vector 32 (see interrupts_init).
 inline constexpr uint32_t IRQ_BASE_VECTOR = 32;
 inline constexpr uint32_t TIMER_VECTOR = IRQ_BASE_VECTOR + 0;
+inline constexpr uint32_t KEYBOARD_VECTOR = IRQ_BASE_VECTOR + 1;
 
 // Software interrupt tasks use to voluntarily reschedule.
 inline constexpr uint32_t YIELD_VECTOR = 129;

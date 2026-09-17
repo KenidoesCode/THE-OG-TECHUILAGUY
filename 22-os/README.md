@@ -2,11 +2,11 @@
 
 A from-first-principles operating-system prototype inside THE OG TECHUILAGUY.
 
-**Status: PROTOTYPE.** Boots under QEMU and passes an automated boot test
-(`tests/boot_test.sh`) that asserts on real serial console output,
-including a live preemptive-scheduling lifecycle scenario. Not a production
-OS: single privilege ring, no userspace, no drivers beyond the timer/PIC,
-no filesystem, no networking.
+**Status: PROTOTYPE.** Boots under QEMU and passes automated tests that
+assert on real serial console output and, for the keyboard driver, on
+real injected PS/2 input — not just that the kernel prints a banner. Not
+a production OS: single privilege ring, no userspace, no storage or
+network drivers, no filesystem, no networking.
 
 ## Implemented and tested
 
@@ -29,12 +29,22 @@ no filesystem, no networking.
   transitions): both the timer and a software `int $0x81` yield vector
   drive the same policy function
 - syscall ABI foundation, VFS foundation, capability/security foundation
+- **a real PS/2 keyboard driver**: IRQ1 reads a scancode from port 0x60
+  and translates it (US QWERTY, unshifted, set-1 make codes) to ASCII on
+  the serial console. The translation table itself
+  (`drivers/keyboard_translation.cpp`) is pure logic with no hardware
+  I/O, unit-tested directly with a hosted compiler
+  (`tests/keyboard_translation_test.sh`); the driver's hardware-facing
+  half is verified by actually booting the kernel and injecting real
+  scancodes through QEMU's monitor (`tests/keyboard_test.sh`), not just
+  by testing the table in isolation
 
 ## Not yet implemented
 
 - userspace / ring 3, GDT/TSS-based privilege separation
-- drivers beyond the timer and PIC (no real keyboard input, no storage,
-  no networking)
+- shifted/uppercase keyboard input, modifier keys, non-US layouts
+- drivers beyond the timer, PIC, and keyboard (no storage, no
+  networking)
 - a filesystem
 - dynamic memory allocation wired to the scheduler (task stacks are
   static, fixed-size, and fixed in number — see `MAX_TASKS` in
@@ -48,5 +58,7 @@ no filesystem, no networking.
 make            # build techuilaguy-os
 make iso        # build a bootable ISO (requires grub-mkrescue, xorriso)
 make run        # boot it in QEMU with -serial stdio
-bash tests/boot_test.sh   # automated boot + scheduler lifecycle test
+bash tests/boot_test.sh                  # automated boot + scheduler lifecycle test
+bash tests/keyboard_test.sh              # boots + injects real scancodes via QEMU's monitor
+bash tests/keyboard_translation_test.sh  # hosted unit test, no boot cycle needed
 ```

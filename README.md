@@ -126,8 +126,15 @@ kernel's own scheduler self-test in `kernel.cpp`: a task that runs a fixed
 number of times and exits, a supervisor task that then proves the exited
 task is never scheduled again, and a third task that reuses the dead
 task's slot while a stale-pid unblock call is made against it and is
-proven not to disturb the new occupant. No userspace, drivers beyond the
-timer/PIC, or filesystem are implemented yet — see `22-os/README.md`.
+proven not to disturb the new occupant.
+
+A real PS/2 keyboard driver reads scancodes from IRQ1 and translates them
+to ASCII (US QWERTY, unshifted). `22-os/tests/keyboard_test.sh` boots the
+kernel and injects real scancodes through QEMU's monitor to verify the
+hardware-facing path end-to-end; the translation table itself has no
+hardware I/O and is separately unit-tested with a hosted compiler
+(`22-os/tests/keyboard_translation_test.sh`). No userspace, storage/network
+drivers, or filesystem are implemented yet — see `22-os/README.md`.
 
 ## 🧩 Domains
 
@@ -158,7 +165,8 @@ timer/PIC, or filesystem are implemented yet — see `22-os/README.md`.
 - [ ] Ownership, borrowing, generics, traits, safe concurrency
 - [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation
 - [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)
-- [ ] Techuilaguy OS — userspace, drivers beyond timer/PIC, filesystem, networking
+- [x] Techuilaguy OS — PS/2 keyboard driver (verified against real injected scancodes via QEMU's monitor, not just a unit-tested translation table)
+- [ ] Techuilaguy OS — userspace, storage/network drivers, filesystem
 - [ ] Techuilaguy L1, Storage, Cloud, AI, Quantum, Space Systems
 
 ## 🔐 Principles
