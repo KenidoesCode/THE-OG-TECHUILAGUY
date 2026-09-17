@@ -32,6 +32,7 @@ private:
     std::unique_ptr<Statement> parseWhile();
     std::unique_ptr<Statement> parseAssign();
     std::unique_ptr<Statement> parseStore();
+    std::unique_ptr<Statement> parseIndexStore();
 
     std::unique_ptr<Expr> parseExpression();
     std::unique_ptr<Expr> parseEquality();

@@ -79,7 +79,9 @@ std::string compileToAssembly(const std::string& source) {
         auto graph = interference.build(ranges);
 
         RegisterAllocator allocator;
-        auto allocation = allocator.allocate(graph, ir.addressTakenValues);
+        auto allocation = allocator.allocate(
+            graph, ir.addressTakenValues, ir.arrayGroups
+        );
 
         assembly += codegen.generate(ir, allocation, ranges);
     }
@@ -468,6 +470,105 @@ void testPointerCodegenUsesFullWidthAddressing() {
           "codegen: never uses 32-bit leal for an address");
 }
 
+void testParserParsesArrayDeclAndIndexing() {
+    Program program = parseProgram(
+        "fn main() -> i32 { "
+        "  let arr: i32[3]; "
+        "  arr[0] = 5; "
+        "  let x: i32 = arr[0]; "
+        "  return x; "
+        "}"
+    );
+
+    auto* decl = dynamic_cast<ArrayDeclStmt*>(program[0].body[0].get());
+    check(decl != nullptr, "parser: 'i32[3]' parses as ArrayDeclStmt");
+    check(decl != nullptr && decl->size == 3,
+          "parser: array declaration records its size");
+    check(decl != nullptr && decl->elementType == "i32",
+          "parser: array declaration records its element type");
+
+    auto* indexStore =
+        dynamic_cast<IndexStoreStmt*>(program[0].body[1].get());
+    check(indexStore != nullptr,
+          "parser: 'arr[0] = 5;' parses as IndexStoreStmt");
+
+    auto* letX = dynamic_cast<LetStmt*>(program[0].body[2].get());
+    auto* indexExpr = letX != nullptr
+        ? dynamic_cast<IndexExpr*>(letX->initializer.get())
+        : nullptr;
+    check(indexExpr != nullptr, "parser: 'arr[0]' parses as IndexExpr");
+}
+
+void testArrayCodegenUsesPointerSafeSubtraction() {
+    std::string assembly = compileToAssembly(
+        "fn main() -> i32 { "
+        "  let arr: i32[3]; "
+        "  arr[0] = 1; "
+        "  return arr[0]; "
+        "}"
+    );
+
+    // Element addressing computes (element-0's real 64-bit address)
+    // minus (index * 8). Using the generic 32-bit SubI32 codegen for
+    // that subtraction — instead of a pointer-aware 64-bit one — was a
+    // real bug during development: it silently truncated the address
+    // AddressOfI32 had correctly computed as 64-bit, corrupting every
+    // array write. movslq (sign-extending the index offset to 64 bits)
+    // and a 64-bit subq are the fingerprint of the fix.
+    check(assembly.find("movslq") != std::string::npos,
+          "codegen: array indexing sign-extends the byte offset to 64 bits");
+    check(assembly.find("subq") != std::string::npos,
+          "codegen: array element address subtraction is 64-bit (subq)");
+}
+
+void testTypeCheckerRejectsIndexingUnknownArray() {
+    expectProgramThrows(
+        "type checker: rejects indexing an undeclared array",
+        "fn main() -> i32 { return nope[0]; }"
+    );
+}
+
+void testTypeCheckerRejectsNonIntegerArraySize() {
+    expectProgramThrows(
+        "type checker: rejects a zero-size array declaration",
+        "fn main() -> i32 { let arr: i32[0]; return 0; }"
+    );
+}
+
+void testTypeCheckerRejectsArrayIndexTypeMismatch() {
+    expectProgramThrows(
+        "type checker: rejects storing a non-i32 value into an i32 array",
+        "fn f(p: ptr) -> i32 { "
+        "  let arr: i32[2]; "
+        "  arr[0] = p; "
+        "  return 0; "
+        "}"
+        "fn main() -> i32 { return 0; }"
+    );
+}
+
+void testTypeCheckerAllowsArrayRoundTrip() {
+    try {
+        Program program = parseProgram(
+            "fn main() -> i32 { "
+            "  let arr: i32[3]; "
+            "  arr[0] = 42; "
+            "  return arr[0]; "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true, "type checker: accepts a well-typed array round trip");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: accepts a well-typed array round trip"
+                  " (threw: ") + e.what() + ")");
+    }
+}
+
 void testTypeCheckerRejectsDereferenceOfNonPointer() {
     expectProgramThrows(
         "type checker: rejects dereferencing a plain i32 value",
@@ -611,6 +712,12 @@ int main() {
     testParserParsesAddressOfAndDeref();
     testParserParsesStoreStatement();
     testPointerCodegenUsesFullWidthAddressing();
+    testParserParsesArrayDeclAndIndexing();
+    testArrayCodegenUsesPointerSafeSubtraction();
+    testTypeCheckerRejectsIndexingUnknownArray();
+    testTypeCheckerRejectsNonIntegerArraySize();
+    testTypeCheckerRejectsArrayIndexTypeMismatch();
+    testTypeCheckerAllowsArrayRoundTrip();
     testTypeCheckerRejectsDereferenceOfNonPointer();
     testTypeCheckerRejectsAddressOfUndeclaredVariable();
     testTypeCheckerRejectsStoreThroughNonPointer();

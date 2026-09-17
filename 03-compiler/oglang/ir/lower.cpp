@@ -14,6 +14,7 @@ IRFunction IRLowerer::lower(const Function& function) {
     nextValue = 0;
     nextLabel = 0;
     variables.clear();
+    arrays.clear();
 
     for (size_t i = 0; i < function.params.size(); ++i) {
         ValueId dst = nextValue++;
@@ -34,6 +35,45 @@ IRFunction IRLowerer::lower(const Function& function) {
     lowerBlock(function.body, ir);
 
     return ir;
+}
+
+ValueId IRLowerer::lowerElementAddress(
+    const std::string& arrayName,
+    const Expr& indexExpr,
+    IRFunction& ir
+) {
+    auto it = arrays.find(arrayName);
+
+    if (it == arrays.end()) {
+        throw std::runtime_error(
+            "Indexing unknown array: " + arrayName
+        );
+    }
+
+    ValueId elementZero = it->second[0];
+    ValueId index = lowerExpr(indexExpr, ir);
+
+    ValueId eight = nextValue++;
+    ir.instructions.push_back({
+        OpCode::ConstI32, eight, -1, -1, 8, {}, ""
+    });
+
+    ValueId byteOffset = nextValue++;
+    ir.instructions.push_back({
+        OpCode::MulI32, byteOffset, index, eight, 0, {}, ""
+    });
+
+    ValueId baseAddress = nextValue++;
+    ir.instructions.push_back({
+        OpCode::AddressOfI32, baseAddress, elementZero, -1, 0, {}, ""
+    });
+
+    ValueId effectiveAddress = nextValue++;
+    ir.instructions.push_back({
+        OpCode::PtrSubI32, effectiveAddress, baseAddress, byteOffset, 0, {}, ""
+    });
+
+    return effectiveAddress;
 }
 
 void IRLowerer::lowerBlock(
@@ -94,6 +134,40 @@ void IRLowerer::lowerStatement(
             0,
             {},
             ""
+        });
+
+        return;
+    }
+
+    if (auto* arrayDecl = dynamic_cast<const ArrayDeclStmt*>(&statement)) {
+        std::vector<ValueId> elements;
+        elements.reserve(static_cast<size_t>(arrayDecl->size));
+
+        for (int i = 0; i < arrayDecl->size; ++i) {
+            ValueId element = nextValue++;
+
+            // Zero-initialized: arrays have no literal-initializer
+            // syntax yet.
+            ir.instructions.push_back({
+                OpCode::ConstI32, element, -1, -1, 0, {}, ""
+            });
+
+            elements.push_back(element);
+        }
+
+        ir.arrayGroups.push_back(elements);
+        arrays[arrayDecl->name] = std::move(elements);
+
+        return;
+    }
+
+    if (auto* indexStore = dynamic_cast<const IndexStoreStmt*>(&statement)) {
+        ValueId effectiveAddress =
+            lowerElementAddress(indexStore->arrayName, *indexStore->index, ir);
+        ValueId value = lowerExpr(*indexStore->value, ir);
+
+        ir.instructions.push_back({
+            OpCode::StoreI32, -1, effectiveAddress, value, 0, {}, ""
         });
 
         return;
@@ -265,6 +339,18 @@ ValueId IRLowerer::lowerExpr(
         ValueId dst = nextValue++;
         ir.instructions.push_back({
             OpCode::LoadI32, dst, pointer, -1, 0, {}, ""
+        });
+
+        return dst;
+    }
+
+    if (auto* indexExpr = dynamic_cast<const IndexExpr*>(&expr)) {
+        ValueId effectiveAddress =
+            lowerElementAddress(indexExpr->arrayName, *indexExpr->index, ir);
+
+        ValueId dst = nextValue++;
+        ir.instructions.push_back({
+            OpCode::LoadI32, dst, effectiveAddress, -1, 0, {}, ""
         });
 
         return dst;

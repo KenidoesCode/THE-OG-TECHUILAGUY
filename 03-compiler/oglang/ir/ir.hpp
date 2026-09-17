@@ -50,6 +50,15 @@ enum class OpCode {
     // memory, it doesn't produce a new value.
     StoreI32,
 
+    // destination = left - right, where `left` and `destination` are
+    // pointer values (64-bit) and `right` is a plain i32 byte offset.
+    // Used for array element addressing. Deliberately a distinct
+    // opcode from SubI32, not a reuse of it: SubI32's codegen operates
+    // on 32-bit registers throughout, which would silently truncate a
+    // real 64-bit pointer value — exactly the same class of bug
+    // AddressOfI32/LoadI32/StoreI32 already had to avoid.
+    PtrSubI32,
+
     // No destination. `label` names the target of Jump/JumpIfZero,
     // or marks this position for one of them.
     Label,
@@ -85,4 +94,15 @@ struct IRFunction {
     // stable address a pointer could actually hold — regardless of
     // what graph coloring would otherwise choose for them.
     std::vector<ValueId> addressTakenValues;
+
+    // Each entry is one array's element ValueIds, in index order
+    // (element 0 first). The register allocator gives every ValueId in
+    // one group a spill slot, in *reserved contiguous order*, so that
+    // element i's address can be computed as a fixed offset from
+    // element 0's address (see IRLowerer's index-expression lowering)
+    // — a plain per-value forced spill (like addressTakenValues) only
+    // guarantees each value has *a* slot, not that a whole group's
+    // slots are contiguous and in a known order relative to each
+    // other.
+    std::vector<std::vector<ValueId>> arrayGroups;
 };

@@ -52,7 +52,9 @@ int main(int argc, char** argv) {
             auto graph = interference.build(ranges);
 
             RegisterAllocator allocator;
-            auto allocation = allocator.allocate(graph, ir.addressTakenValues);
+            auto allocation = allocator.allocate(
+                graph, ir.addressTakenValues, ir.arrayGroups
+            );
 
             assembly += codegen.generate(ir, allocation, ranges);
         }

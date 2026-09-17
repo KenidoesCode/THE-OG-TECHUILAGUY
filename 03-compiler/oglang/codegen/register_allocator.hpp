@@ -32,8 +32,17 @@ public:
     // They're given a slot up front and removed from the graph before
     // coloring runs, so they impose no register-color constraint on
     // anything else either.
+    //
+    // `arrayGroups` are stronger still: each inner vector is one
+    // array's element ValueIds, in index order, and must receive
+    // *contiguous* slot numbers in that exact order — a plain
+    // forcedSpill only guarantees each value gets some slot, not that
+    // a whole group's slots are adjacent, which array index arithmetic
+    // (element address = element-0's address plus a fixed multiple of
+    // the index) depends on.
     RegisterAllocation allocate(
         const InterferenceGraph& graph,
-        const std::vector<ValueId>& forcedSpills = {}
+        const std::vector<ValueId>& forcedSpills = {},
+        const std::vector<std::vector<ValueId>>& arrayGroups = {}
     );
 };

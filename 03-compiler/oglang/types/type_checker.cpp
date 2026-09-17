@@ -15,6 +15,11 @@ public:
 
     std::unordered_map<std::string, std::string> variables;
 
+    // name -> (element type, size). A separate namespace from
+    // `variables`: an array is never used as a plain value, only
+    // indexed, so there is no ambiguity in keeping them apart.
+    std::unordered_map<std::string, std::pair<std::string, int>> arrays;
+
     std::string checkExpr(const Expr& expr) {
         if (dynamic_cast<const IntegerExpr*>(&expr))
             return "i32";
@@ -68,6 +73,26 @@ public:
             }
 
             return "i32";
+        }
+
+        if (auto* indexExpr = dynamic_cast<const IndexExpr*>(&expr)) {
+            auto it = arrays.find(indexExpr->arrayName);
+
+            if (it == arrays.end()) {
+                throw std::runtime_error(
+                    "Indexing unknown array: " + indexExpr->arrayName
+                );
+            }
+
+            std::string indexType = checkExpr(*indexExpr->index);
+
+            if (indexType != "i32") {
+                throw std::runtime_error(
+                    "Array index must be i32"
+                );
+            }
+
+            return it->second.first;
         }
 
         if (auto* call = dynamic_cast<const CallExpr*>(&expr)) {
@@ -210,6 +235,58 @@ public:
             if (valueType != "i32") {
                 throw std::runtime_error(
                     "Cannot store a non-i32 value through a pointer"
+                );
+            }
+
+            return;
+        }
+
+        if (auto* arrayDecl =
+                dynamic_cast<const ArrayDeclStmt*>(&statement)) {
+
+            if (arrayDecl->elementType != "i32") {
+                throw std::runtime_error(
+                    "Only i32 arrays are supported"
+                );
+            }
+
+            if (arrayDecl->size <= 0) {
+                throw std::runtime_error(
+                    "Array size must be positive: " + arrayDecl->name
+                );
+            }
+
+            arrays[arrayDecl->name] =
+                {arrayDecl->elementType, arrayDecl->size};
+
+            return;
+        }
+
+        if (auto* indexStore =
+                dynamic_cast<const IndexStoreStmt*>(&statement)) {
+
+            auto it = arrays.find(indexStore->arrayName);
+
+            if (it == arrays.end()) {
+                throw std::runtime_error(
+                    "Indexing unknown array: " + indexStore->arrayName
+                );
+            }
+
+            std::string indexType = checkExpr(*indexStore->index);
+
+            if (indexType != "i32") {
+                throw std::runtime_error(
+                    "Array index must be i32"
+                );
+            }
+
+            std::string valueType = checkExpr(*indexStore->value);
+
+            if (valueType != it->second.first) {
+                throw std::runtime_error(
+                    "Type mismatch storing into array: " +
+                    indexStore->arrayName
                 );
             }
 

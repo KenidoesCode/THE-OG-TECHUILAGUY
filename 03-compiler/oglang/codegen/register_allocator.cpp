@@ -5,7 +5,8 @@
 
 RegisterAllocation RegisterAllocator::allocate(
     const InterferenceGraph& graph,
-    const std::vector<ValueId>& forcedSpills
+    const std::vector<ValueId>& forcedSpills,
+    const std::vector<std::vector<ValueId>>& arrayGroups
 ) {
     const std::vector<std::string> registers = {
         "eax", "ecx", "edx", "esi"
@@ -34,6 +35,18 @@ RegisterAllocation RegisterAllocator::allocate(
 
         working.erase(it);
     };
+
+    // Each array's elements get contiguous slot numbers, in index
+    // order, reserved as a block before anything else runs — a plain
+    // forced spill (below) only guarantees *a* slot per value, not
+    // that a whole group's slots are adjacent and in a known relative
+    // order, which the codegen's index-address arithmetic depends on.
+    for (const auto& group : arrayGroups) {
+        for (ValueId value : group) {
+            result.spillSlots[value] = result.spillSlotCount++;
+            removeFromWorking(value);
+        }
+    }
 
     // Values with a forced spill slot never enter coloring at all —
     // giving them one up front and removing them from the graph means

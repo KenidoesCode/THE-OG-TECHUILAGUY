@@ -148,6 +148,15 @@ std::unique_ptr<Statement> Parser::parseStatement() {
 
         std::string type = parseType();
 
+        if (match(TokenKind::LBracket)) {
+            int size = std::stoi(expect(TokenKind::Integer).text);
+
+            expect(TokenKind::RBracket);
+            expect(TokenKind::Semicolon);
+
+            return std::make_unique<ArrayDeclStmt>(name, type, size);
+        }
+
         expect(TokenKind::Equal);
 
         auto initializer =
@@ -184,11 +193,36 @@ std::unique_ptr<Statement> Parser::parseStatement() {
         peekNext().kind == TokenKind::Equal)
         return parseAssign();
 
+    if (peek().kind == TokenKind::Identifier &&
+        peekNext().kind == TokenKind::LBracket)
+        return parseIndexStore();
+
     if (peek().kind == TokenKind::Star)
         return parseStore();
 
     throw std::runtime_error(
         "Unknown statement: " + peek().text
+    );
+}
+
+std::unique_ptr<Statement> Parser::parseIndexStore() {
+    std::string name = expect(TokenKind::Identifier).text;
+
+    expect(TokenKind::LBracket);
+
+    auto index = parseExpression();
+
+    expect(TokenKind::RBracket);
+    expect(TokenKind::Equal);
+
+    auto value = parseExpression();
+
+    expect(TokenKind::Semicolon);
+
+    return std::make_unique<IndexStoreStmt>(
+        name,
+        std::move(index),
+        std::move(value)
     );
 }
 
@@ -517,6 +551,17 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
             return std::make_unique<CallExpr>(
                 name,
                 std::move(args)
+            );
+        }
+
+        if (match(TokenKind::LBracket)) {
+            auto index = parseExpression();
+
+            expect(TokenKind::RBracket);
+
+            return std::make_unique<IndexExpr>(
+                name,
+                std::move(index)
             );
         }
 

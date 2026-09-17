@@ -34,18 +34,21 @@ a Linux process loader actually runs.
 | Functions, calls, recursion, ≤4-register + stack-passed args | TESTED | `tests/programs/factorial.og`, `many_args.og` |
 | Mutable assignment, unary minus, `//` comments | TESTED | `tests/unit_test.sh` |
 | **Pointers**: `&`, `*` read/write, address-taken locals forced to stack | TESTED | `tests/programs/pointer_aliasing.og`, `pointer_spill.og` |
+| **Fixed-size arrays**: `i32[N]`, contiguous-slot allocation, pointer-arithmetic indexing | TESTED | `tests/programs/arrays.og`, `arrays_with_calls.og` |
 | Memory-safety model | PLANNED | no ADR yet; only raw pointers, no ownership/borrowing |
-| Arrays, structs, enums, modules | PLANNED | not started |
+| Structs, enums, modules | PLANNED | not started |
 | Atomics, volatile, MMIO, inline-asm boundary | PLANNED | not started |
 | Types other than `i32`/`ptr` | PLANNED | not started |
 | Freestanding/kernel-target compilation | PLANNED | OGLang only targets a hosted Linux ELF process today; the OS kernel itself is still C++/asm |
 
-**Test suite:** 65 unit assertions, 15 end-to-end programs, all passing
+**Test suite:** 72 unit assertions, 17 end-to-end programs, all passing
 from a clean build (`03-compiler/oglang/tests/unit_test.sh` and
-`e2e_test.sh`). 5 real bugs were caught by these tests during
+`e2e_test.sh`). 7 real bugs were caught by these tests during
 development (a calling-convention operand-clobber bug, a division
 codegen typo, three distinct parameter/argument marshaling clobber
-hazards, and a pointer-truncation bug), not by inspection.
+hazards, and the same 64-bit-pointer-truncation bug class appearing
+twice independently — once in the pointer feature, once in array
+element addressing), not by inspection.
 
 **Explicitly NOT done:** self-hosting (the compiler that compiles
 OGLang is itself C++, not OGLang), a written memory-safety-model ADR,

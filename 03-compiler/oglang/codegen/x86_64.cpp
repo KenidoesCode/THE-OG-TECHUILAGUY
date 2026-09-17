@@ -352,6 +352,44 @@ std::string X86Codegen::generate(
                 break;
             }
 
+            case OpCode::PtrSubI32: {
+                // `left`/`destination` are 64-bit pointer values;
+                // `right` is a plain i32 byte offset that must be
+                // sign-extended to 64 bits before the subtraction —
+                // using a 32-bit sub here would be the same address-
+                // truncating bug AddressOfI32/LoadI32/StoreI32 already
+                // had to avoid.
+                std::string pointerReg64;
+                if (isSpilled(inst.left)) {
+                    out << "    movq " << spillAddress(inst.left) << ", %rbx\n";
+                    pointerReg64 = "rbx";
+                } else {
+                    pointerReg64 = to64(allocation.registers.at(inst.left));
+                }
+
+                std::string offsetLoc = loadRead(inst.right, "edi");
+                out << "    movslq " << offsetLoc << ", %rdi\n";
+
+                bool spilled = isSpilled(inst.destination);
+                std::string destReg64 = spilled
+                    ? "rbx"
+                    : to64(allocation.registers.at(inst.destination));
+
+                if (destReg64 != pointerReg64) {
+                    out << "    movq %" << pointerReg64 << ", %"
+                        << destReg64 << "\n";
+                }
+
+                out << "    subq %rdi, %" << destReg64 << "\n";
+
+                if (spilled) {
+                    out << "    movq %rbx, "
+                        << spillAddress(inst.destination) << "\n";
+                }
+
+                break;
+            }
+
             case OpCode::DivI32: {
                 // idivl requires the dividend sign-extended across
                 // edx:eax and forbids eax/edx as the divisor operand.

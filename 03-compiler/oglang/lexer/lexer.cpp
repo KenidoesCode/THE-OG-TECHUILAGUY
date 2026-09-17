@@ -164,6 +164,18 @@ std::vector<Token> Lexer::tokenize() {
                 advance();
                 break;
 
+            case '[':
+                text = "[";
+                kind = TokenKind::LBracket;
+                advance();
+                break;
+
+            case ']':
+                text = "]";
+                kind = TokenKind::RBracket;
+                advance();
+                break;
+
             case ':':
                 text = ":";
                 kind = TokenKind::Colon;

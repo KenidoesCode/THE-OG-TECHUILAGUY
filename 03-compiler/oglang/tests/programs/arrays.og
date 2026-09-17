@@ -1,0 +1,22 @@
+// Writes each element through a loop, then reads them back through a
+// second loop — real memory, not registers pretending to be an array,
+// since the value read back at index j must have been produced by a
+// completely separate later dereference than the one that wrote it.
+fn main() -> i32 {
+    let arr: i32[5];
+
+    let i: i32 = 0;
+    while (i < 5) {
+        arr[i] = i * 10;
+        i = i + 1;
+    }
+
+    let sum: i32 = 0;
+    let j: i32 = 0;
+    while (j < 5) {
+        sum = sum + arr[j];
+        j = j + 1;
+    }
+
+    return sum;
+}

@@ -95,21 +95,38 @@ spilled addresses through 32-bit registers/slots, silently truncating
 them into garbage (an immediate segfault on the first real test, caught
 by that test, not by inspection).
 
-`03-compiler/oglang/tests/e2e_test.sh` runs fifteen programs end-to-end
-and checks their real process exit codes, including cases specifically
-chosen to fail under a naive calling convention, an unconstrained
-division lowering, superficial/fake spilling, or 32-bit-truncated
-pointers — six real bugs were caught this way across this compiler's
-development (not by inspection): a naive calling convention corrupting
-operands, a division codegen typo, three distinct clobber hazards across
-parameter unpacking and argument marshaling, and the pointer-truncation
-bug above. Frontend and codegen invariants are additionally covered by
-`03-compiler/oglang/tests/unit_test.sh` (65 assertions). The type checker
+Fixed-size arrays build directly on the pointer machinery: `let arr:
+i32[N];` reserves N *contiguous* stack slots (a new register-allocator
+capability — a plain forced spill only guarantees each value gets some
+slot, not that a whole group's slots are adjacent and in index order),
+and `arr[i]`/`arr[i] = v` compute the element's address as element 0's
+address minus `i * 8`, reusing the exact same `AddressOfI32`/`LoadI32`/
+`StoreI32` opcodes pointers already use. The one genuinely new piece —
+that address arithmetic — hit the *same* 64-bit-truncation bug class a
+second time: the natural first implementation subtracted the byte
+offset using the generic 32-bit `SubI32` codegen, silently truncating
+the real 64-bit address `AddressOfI32` had just correctly computed.
+Fixed with a dedicated `PtrSubI32` opcode that does the subtraction in
+a 64-bit register, caught by the first real array test, not by
+inspection.
+
+`03-compiler/oglang/tests/e2e_test.sh` runs seventeen programs
+end-to-end and checks their real process exit codes, including cases
+specifically chosen to fail under a naive calling convention, an
+unconstrained division lowering, superficial/fake spilling, or
+32-bit-truncated pointers — seven real bugs were caught this way across
+this compiler's development (not by inspection): a naive calling
+convention corrupting operands, a division codegen typo, three distinct
+clobber hazards across parameter unpacking and argument marshaling, and
+two separate instances of the same 64-bit-pointer-truncation bug class
+(one in the pointer feature itself, one in array element addressing).
+Frontend and codegen invariants are additionally covered by
+`03-compiler/oglang/tests/unit_test.sh` (72 assertions). The type checker
 also verifies every function returns on
 all paths (an `if` without an `else`, or a function ending in a bare
 `while` loop, is rejected — a loop may run zero times).
 Not yet implemented: generics, traits, ownership/borrowing, `for` loops,
-arrays, structs, and any type other than `i32`/`ptr`.
+structs, enums, modules, and any type other than `i32`/`ptr`.
 
 ## 🖥️ Techuilaguy OS — second deep system
 
@@ -200,7 +217,8 @@ are implemented yet — see `22-os/README.md`.
 - [x] Register-constrained division, `if`/`else` control flow, multi-function programs, calls with any number of arguments (register + stack-passed), a correct calling convention across nested/recursive calls
 - [x] `while` loops, mutable-variable assignment, real register-allocator spilling (Chaitin-style graph coloring, `rbp`-relative stack slots), all-paths-return checking
 - [x] Real pointers: `&`/`*` (address-of, load, store) as genuine 64-bit addresses, with address-taken locals forced into stable stack slots
-- [ ] `for` loops, arrays, structs, types other than `i32`/`ptr`
+- [x] Fixed-size arrays: `i32[N]` with contiguous-slot allocation and pointer-arithmetic-based indexing
+- [ ] `for` loops, structs, enums, modules, types other than `i32`/`ptr`
 - [ ] Ownership, borrowing, generics, traits, safe concurrency
 - [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation
 - [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)

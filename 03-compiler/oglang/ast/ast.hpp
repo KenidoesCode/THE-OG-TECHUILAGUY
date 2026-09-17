@@ -65,6 +65,15 @@ struct DerefExpr : Expr {
         : pointer(std::move(pointer)) {}
 };
 
+// arr[index] — reads one element of a fixed-size local array.
+struct IndexExpr : Expr {
+    std::string arrayName;
+    std::unique_ptr<Expr> index;
+
+    IndexExpr(std::string arrayName, std::unique_ptr<Expr> index)
+        : arrayName(std::move(arrayName)), index(std::move(index)) {}
+};
+
 struct CallExpr : Expr {
     std::string callee;
     std::vector<std::unique_ptr<Expr>> args;
@@ -125,6 +134,35 @@ struct StoreStmt : Statement {
         std::unique_ptr<Expr> value
     )
         : pointer(std::move(pointer)),
+          value(std::move(value)) {}
+};
+
+// let name: elementType[size]; — declares a fixed-size, zero-initialized
+// local array. No initializer expression: arrays start at all zeros.
+struct ArrayDeclStmt : Statement {
+    std::string name;
+    std::string elementType;
+    int size;
+
+    ArrayDeclStmt(std::string name, std::string elementType, int size)
+        : name(std::move(name)),
+          elementType(std::move(elementType)),
+          size(size) {}
+};
+
+// arr[index] = value; — writes one element of a fixed-size local array.
+struct IndexStoreStmt : Statement {
+    std::string arrayName;
+    std::unique_ptr<Expr> index;
+    std::unique_ptr<Expr> value;
+
+    IndexStoreStmt(
+        std::string arrayName,
+        std::unique_ptr<Expr> index,
+        std::unique_ptr<Expr> value
+    )
+        : arrayName(std::move(arrayName)),
+          index(std::move(index)),
           value(std::move(value)) {}
 };
 

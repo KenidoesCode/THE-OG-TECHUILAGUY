@@ -1,0 +1,27 @@
+// Combines an array with high register pressure (4 scalars plus the
+// array all concurrently live) and a function call writing into it
+// through a loop. This exact combination — a pointer-typed address
+// computation (element addressing) sharing the register file with a
+// call's own argument/return marshaling — is what caught a real bug
+// during development: array-element addresses were computed with a
+// 32-bit subtraction, silently truncating the 64-bit base address
+// AddressOfI32 correctly computed, corrupting every element write.
+fn double(x: i32) -> i32 {
+    return x * 2;
+}
+
+fn main() -> i32 {
+    let a: i32 = 1;
+    let b: i32 = 2;
+    let c: i32 = 3;
+    let arr: i32[3];
+    let d: i32 = 4;
+
+    let i: i32 = 0;
+    while (i < 3) {
+        arr[i] = double(i + 1);
+        i = i + 1;
+    }
+
+    return a + b + c + d + arr[0] + arr[1] + arr[2];
+}
