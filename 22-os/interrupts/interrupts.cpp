@@ -1,6 +1,8 @@
 #include "interrupts.hpp"
 #include "../kernel/serial.hpp"
 #include "../interrupts/pic.hpp"
+#include "../scheduler/pit.hpp"
+#include "../scheduler/scheduler.hpp"
 
 struct IDTEntry {
     uint16_t offset_low;
@@ -53,6 +55,7 @@ extern "C" void isr31();
 
 extern "C" void irq0();
 extern "C" void irq1();
+extern "C" void isr_yield();
 
 using ISR = void (*)();
 
@@ -148,6 +151,12 @@ void interrupts_init() {
         kernel_code_selector()
     );
 
+    idt_set_gate(
+        YIELD_VECTOR,
+        reinterpret_cast<uintptr_t>(isr_yield),
+        kernel_code_selector()
+    );
+
     idt_pointer.limit = sizeof(idt) - 1;
     idt_pointer.base =
         reinterpret_cast<uintptr_t>(&idt[0]);
@@ -162,7 +171,7 @@ void interrupts_init() {
     serial_write("[INT ] CPU exception handlers online\n");
 }
 
-extern "C" void interrupt_handler(InterruptFrame* frame) {
+extern "C" uint32_t interrupt_handler(InterruptFrame* frame) {
     if (frame == nullptr) {
         serial_write("[INT ] null interrupt frame\n");
 
@@ -171,7 +180,7 @@ extern "C" void interrupt_handler(InterruptFrame* frame) {
         }
     }
 
-    if (frame->interrupt_number < 32) {
+    if (frame->interrupt_number < IRQ_BASE_VECTOR) {
         serial_write("[EXC ] CPU exception\n");
 
         while (true) {
@@ -179,16 +188,39 @@ extern "C" void interrupt_handler(InterruptFrame* frame) {
         }
     }
 
-    if (frame->interrupt_number >= 32 &&
-        frame->interrupt_number < 48) {
+    uint32_t currentEsp = reinterpret_cast<uint32_t>(frame);
+
+    // The software yield vector carries no PIC-owned hardware interrupt
+    // to acknowledge; it is pure scheduling policy.
+    if (frame->interrupt_number == YIELD_VECTOR) {
+        return scheduler_on_yield(currentEsp);
+    }
+
+    if (frame->interrupt_number >= IRQ_BASE_VECTOR &&
+        frame->interrupt_number < IRQ_BASE_VECTOR + 16) {
 
         uint8_t irq =
             static_cast<uint8_t>(
-                frame->interrupt_number - 32
+                frame->interrupt_number - IRQ_BASE_VECTOR
             );
 
+        uint32_t nextEsp = currentEsp;
+
+        if (frame->interrupt_number == TIMER_VECTOR) {
+            pit_tick();
+            nextEsp = scheduler_on_timer_tick(currentEsp);
+        }
+
+        // Hardware acknowledgement is intentionally separate from, and
+        // always runs regardless of, whatever the scheduler decided
+        // above — the PIC must be told this IRQ is handled whether or
+        // not a task switch happened.
         pic_send_eoi(irq);
+
+        return nextEsp;
     }
+
+    return currentEsp;
 }
 
 void interrupts_enable() {

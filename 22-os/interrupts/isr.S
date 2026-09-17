@@ -82,6 +82,19 @@ isr_common:
     call interrupt_handler
     addl $4, %esp
 
+    /*
+     * interrupt_handler returns the (possibly different) kernel
+     * stack pointer to resume execution from. On every path except
+     * a scheduler-driven task switch this is simply the frame we
+     * were already on; when the scheduler decides to switch tasks,
+     * it is a different task's previously saved frame, and loading
+     * it here is the entire context-switch mechanism — every task's
+     * saved register state lives on its own stack in exactly this
+     * trap-frame layout, so resuming it is just a normal interrupt
+     * return.
+     */
+    movl %eax, %esp
+
     popl %gs
     popl %fs
     popl %es
@@ -100,59 +113,45 @@ isr_common:
 
 
 /* ---------------------------------------------------------
- * IRQ0
+ * IRQ0 (PIT timer) and IRQ1 (keyboard).
  *
- * Diagnostic handler.
- *
- * No C++.
- * No scheduler.
- * No IRET.
- *
- * Once IRQ0 arrives, mask it, acknowledge it, then halt.
+ * Hardware IRQs after PIC remapping share the exact same trap
+ * frame and dispatch path as CPU exceptions (isr_common): push a
+ * dummy error code and the interrupt vector, then fall into the
+ * common handler. This is what lets interrupt_handler's generic
+ * IRQ range check EOI them, and lets vector 32 (the timer) drive
+ * the scheduler through the same return-a-new-esp mechanism used
+ * by the software yield vector below — hardware acknowledgement
+ * stays entirely in C (interrupt_handler / pic_send_eoi); this
+ * file only ever transports a trap frame.
  * --------------------------------------------------------- */
+
+ISR_NO_ERROR 32
+ISR_NO_ERROR 33
 
 .global irq0
 .type irq0, @function
-irq0:
-    cli
-
-    /*
-     * Mask IRQ0.
-     */
-    inb $0x21, %al
-    orb $0x01, %al
-    outb %al, $0x21
-
-    /*
-     * EOI to master PIC.
-     */
-    movb $0x20, %al
-    outb %al, $0x20
-
-    /*
-     * Write '!' to COM1.
-     * DX is required because 0x3F8 does not fit
-     * in the short immediate-port encoding.
-     */
-    movw $0x3F8, %dx
-    movb $'!', %al
-    outb %al, %dx
-
-irq0_hang:
-    hlt
-    jmp irq0_hang
-
-
-/* ---------------------------------------------------------
- * IRQ1
- * --------------------------------------------------------- */
+irq0 = isr32
 
 .global irq1
 .type irq1, @function
-irq1:
-    cli
+irq1 = isr33
 
-    movb $0x20, %al
-    outb %al, $0x20
 
-    iret
+/* ---------------------------------------------------------
+ * Software "yield" interrupt.
+ *
+ * Tasks request a voluntary reschedule with `int $0x81` rather
+ * than a hand-rolled context-switch routine, so voluntary yields
+ * reuse the exact same trap-frame save/restore path as timer
+ * preemption instead of a second, separately-maintained mechanism.
+ * --------------------------------------------------------- */
+
+ISR_NO_ERROR 129
+
+.global isr_yield
+.type isr_yield, @function
+isr_yield = isr129
+
+
+.section .note.GNU-stack,"",@progbits

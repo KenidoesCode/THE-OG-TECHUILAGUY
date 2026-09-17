@@ -3,6 +3,15 @@
 # rather than only checking that a binary file exists. Requires
 # qemu-system-i386 on PATH; skips (rather than fails) if unavailable, since
 # this is a hardware-adjacent test and not every environment has an emulator.
+#
+# The scheduler assertions below are not superficial existence checks: the
+# kernel's own scheduler test (kernel.cpp) runs a real preemptive task
+# lifecycle scenario — a task that exits, a supervisor that waits and then
+# checks the exited task never runs again, and a brand-new task that reuses
+# the dead task's table slot while a stale unblock() call against the old
+# pid is deliberately made against it. If context switching, task exit, or
+# the pid-based anti-resurrection design were broken, these lines would not
+# appear, or the [FAIL] variants would appear instead.
 
 set -u
 
@@ -47,9 +56,30 @@ check "\[SCHED\] scheduler initialized" "scheduler initialized"
 check "\[SYS \] syscall subsystem initialized" "syscall subsystem initialized"
 check "\[VFS \] virtual filesystem initialized" "VFS initialized"
 check "\[SEC \] capability security initialized" "security subsystem initialized"
-check "\[PASS\] IRQ0 hardware path survived" "IRQ0 hardware interrupt path verified live"
+check "\[PIT \] programmable timer online" "PIT programmed"
 
-if grep -qi "panic\|fault\|triple fault" "$LOG"; then
+check "task A exited after 5 run(s)" \
+    "a task actually ran, hit its exit condition, and called scheduler_exit"
+
+check "\[PASS\] dead task never ran again after exit" \
+    "a dead task's slot is never rescheduled (round-robin skips Dead)"
+
+check "\[PASS\] task reusing the dead slot ran normally despite an unblock call against the old pid" \
+    "a stale pid handle cannot reach a new task reusing its old slot"
+
+check "task C observed 10 run(s)" \
+    "a task created after boot (reusing a dead slot) runs to completion"
+
+check "\[TICK\] 100" \
+    "the timer keeps preempting tasks after the lifecycle test completes"
+
+if grep -q "\[FAIL\]" "$LOG"; then
+    echo "[FAIL] boot: kernel's own scheduler self-test reported a failure"
+    grep "\[FAIL\]" "$LOG"
+    FAIL=1
+fi
+
+if grep -qi "panic\|triple fault" "$LOG"; then
     echo "[FAIL] boot: no panic/fault detected"
     FAIL=1
 fi

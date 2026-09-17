@@ -4,3 +4,5 @@
 
 void pit_init(uint32_t frequency);
 uint64_t pit_ticks();
+
+extern "C" void pit_tick();

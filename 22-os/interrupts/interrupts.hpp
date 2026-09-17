@@ -2,6 +2,13 @@
 
 #include <stdint.h>
 
+// Hardware IRQs are remapped to start at vector 32 (see interrupts_init).
+inline constexpr uint32_t IRQ_BASE_VECTOR = 32;
+inline constexpr uint32_t TIMER_VECTOR = IRQ_BASE_VECTOR + 0;
+
+// Software interrupt tasks use to voluntarily reschedule.
+inline constexpr uint32_t YIELD_VECTOR = 129;
+
 struct InterruptFrame {
     uint32_t gs;
     uint32_t fs;
@@ -32,4 +39,8 @@ void interrupts_init();
 void interrupts_enable();
 void interrupts_disable();
 
-extern "C" void interrupt_handler(InterruptFrame* frame);
+// Returns the (possibly different) kernel stack pointer to resume from.
+// isr_common loads this into %esp before restoring registers, which is
+// the entire context-switch mechanism the scheduler relies on: every
+// task's saved state is a trap frame sitting on its own kernel stack.
+extern "C" uint32_t interrupt_handler(InterruptFrame* frame);
