@@ -1,0 +1,13 @@
+import colors;
+
+fn main() -> i32 {
+    let b: i32 = colors.brightness(10);
+
+    let p: colors.Point;
+    p.x = 1;
+    p.y = 2;
+
+    let c: i32 = colors.Color.Blue;
+
+    return b + p.x + p.y + c;
+}

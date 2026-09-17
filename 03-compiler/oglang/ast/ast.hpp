@@ -273,14 +273,32 @@ struct EnumDecl {
     std::vector<std::string> variants;
 };
 
+// import module_name; — a whole-module import. A module is one source
+// file, named after its filename (without extension) by the compiler
+// driver, not by anything declared inside the file. Importing a
+// module makes every one of its top-level functions/structs/enums
+// reachable from this file, but ONLY through explicit qualification
+// (module_name.symbol) — there is no unqualified access to an
+// imported symbol, which is what makes two modules exposing the same
+// unqualified name a non-issue rather than an ambiguity to resolve.
+// See docs/ADR/0002-oglang-modules.md for the full design and its
+// explicitly-scoped v1 limits (no transitive re-export, no partial/
+// selective imports, no separately-compiled object files yet).
+struct ImportDecl {
+    std::string moduleName;
+};
+
 // A program is one or more struct/enum type definitions plus one or
-// more functions. Type definitions are program-wide (visible to every
-// function regardless of declaration order, same as function
-// signatures); Program keeps a vector<Function>-compatible interface
-// (size/operator[]/begin/end/push_back) so the many existing call
-// sites written when Program was a bare std::vector<Function> keep
-// working unchanged against the .functions half.
+// more functions, plus zero or more imports of other modules. Type
+// definitions and functions are visible within their own module
+// regardless of declaration order (a signature table is built before
+// any function body is checked); Program keeps a
+// vector<Function>-compatible interface (size/operator[]/begin/end/
+// push_back) so the many existing call sites written when Program was
+// a bare std::vector<Function> keep working unchanged against the
+// .functions half.
 struct Program {
+    std::vector<ImportDecl> imports;
     std::vector<StructDecl> structs;
     std::vector<EnumDecl> enums;
     std::vector<Function> functions;

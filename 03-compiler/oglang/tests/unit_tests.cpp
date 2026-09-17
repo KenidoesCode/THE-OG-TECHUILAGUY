@@ -887,6 +887,250 @@ void testTypeCheckerAllowsEnumVariantRoundTrip() {
     }
 }
 
+void testParserParsesImportDecl() {
+    Program program = parseProgram(
+        "import colors; "
+        "fn main() -> i32 { return 0; }"
+    );
+
+    check(program.imports.size() == 1,
+          "parser: 'import colors;' is parsed as a top-level import declaration");
+    check(program.imports[0].moduleName == "colors",
+          "parser: import declaration records the module name");
+}
+
+void testParserParsesQualifiedCallAndTypeAndEnumAccess() {
+    Program program = parseProgram(
+        "import colors; "
+        "fn main() -> i32 { "
+        "  let b: i32 = colors.brightness(1); "
+        "  let p: colors.Point; "
+        "  let c: i32 = colors.Color.Red; "
+        "  return b; "
+        "}"
+    );
+
+    auto* letB = dynamic_cast<LetStmt*>(program[0].body[0].get());
+    auto* call = letB != nullptr
+        ? dynamic_cast<CallExpr*>(letB->initializer.get())
+        : nullptr;
+    check(call != nullptr && call->callee == "colors.brightness",
+          "parser: 'colors.brightness(1)' parses as a CallExpr with a "
+          "qualified callee");
+
+    auto* declP =
+        dynamic_cast<StructVarDeclStmt*>(program[0].body[1].get());
+    check(declP != nullptr && declP->structType == "colors.Point",
+          "parser: 'let p: colors.Point;' records a qualified struct type name");
+
+    auto* letC = dynamic_cast<LetStmt*>(program[0].body[2].get());
+    auto* enumAccess = letC != nullptr
+        ? dynamic_cast<FieldAccessExpr*>(letC->initializer.get())
+        : nullptr;
+    check(enumAccess != nullptr &&
+          enumAccess->structVarName == "colors.Color" &&
+          enumAccess->fieldName == "Red",
+          "parser: 'colors.Color.Red' parses as a qualified enum variant access");
+}
+
+TypeChecker::ModuleSymbols collectSymbols(const std::string& source) {
+    Program program = parseProgram(source);
+    return TypeChecker::collectModuleSymbols(program);
+}
+
+void testCheckModuleAllowsCrossModuleFunctionStructAndEnum() {
+    // Mirrors main.cpp's own multi-module driver logic at unit-test
+    // granularity: build one module's own symbols, qualify them under
+    // its module name, and check a second module that imports them.
+    TypeChecker::ModuleSymbols colors = collectSymbols(
+        "struct Point { x: i32, y: i32 } "
+        "enum Color { Red, Green, Blue } "
+        "fn brightness(level: i32) -> i32 { return level * 2; }"
+    );
+
+    std::unordered_map<std::string, FunctionSignature> externalSignatures;
+    for (auto& [name, sig] : colors.signatures) {
+        externalSignatures["colors." + name] = sig;
+    }
+
+    StructTable externalStructs;
+    for (auto& [name, fields] : colors.structs) {
+        externalStructs["colors." + name] = fields;
+    }
+
+    EnumTable externalEnums;
+    for (auto& [name, variants] : colors.enums) {
+        externalEnums["colors." + name] = variants;
+    }
+
+    Program mainProgram = parseProgram(
+        "import colors; "
+        "fn main() -> i32 { "
+        "  let b: i32 = colors.brightness(10); "
+        "  let p: colors.Point; "
+        "  p.x = 1; "
+        "  let c: i32 = colors.Color.Blue; "
+        "  return b + p.x + c; "
+        "}"
+    );
+
+    try {
+        TypeChecker checker;
+        checker.checkModule(
+            mainProgram, externalSignatures, externalStructs,
+            externalEnums, /*requireMain=*/true
+        );
+        check(true,
+              "modules: a module can call an imported function, declare "
+              "an imported struct type, and read an imported enum variant");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "modules: a module can call an imported function, "
+                  "declare an imported struct type, and read an "
+                  "imported enum variant (threw: ") + e.what() + ")");
+    }
+}
+
+void testCheckModuleRejectsUnqualifiedAccessToImportedSymbol() {
+    TypeChecker::ModuleSymbols colors =
+        collectSymbols("fn brightness(level: i32) -> i32 { return level; }");
+
+    std::unordered_map<std::string, FunctionSignature> externalSignatures;
+    for (auto& [name, sig] : colors.signatures) {
+        externalSignatures["colors." + name] = sig;
+    }
+
+    // Calling brightness() *unqualified* must fail — an imported
+    // symbol is reachable only through module.symbol, never bare, so
+    // two modules exposing the same unqualified name are never
+    // ambiguous with each other.
+    Program mainProgram = parseProgram(
+        "import colors; "
+        "fn main() -> i32 { return brightness(1); }"
+    );
+
+    bool threw = false;
+    try {
+        TypeChecker checker;
+        checker.checkModule(
+            mainProgram, externalSignatures, {}, {}, /*requireMain=*/true
+        );
+    } catch (const std::exception&) {
+        threw = true;
+    }
+
+    check(threw,
+          "modules: an imported function is not reachable unqualified "
+          "(module.symbol is required)");
+}
+
+void testCheckModuleAllowsSameUnqualifiedNameInTwoModulesWithoutAmbiguity() {
+    // Two independently-collected modules both declare a function
+    // named "convert" — this must never be ambiguous, since a module
+    // never sees another module's unqualified names at all; only
+    // "moduleA.convert" / "moduleB.convert" exist in its view.
+    TypeChecker::ModuleSymbols moduleA =
+        collectSymbols("fn convert(x: i32) -> i32 { return x + 1; }");
+    TypeChecker::ModuleSymbols moduleB =
+        collectSymbols("fn convert(x: i32) -> i32 { return x * 2; }");
+
+    std::unordered_map<std::string, FunctionSignature> externalSignatures;
+    for (auto& [name, sig] : moduleA.signatures) {
+        externalSignatures["moduleA." + name] = sig;
+    }
+    for (auto& [name, sig] : moduleB.signatures) {
+        externalSignatures["moduleB." + name] = sig;
+    }
+
+    Program mainProgram = parseProgram(
+        "import moduleA; import moduleB; "
+        "fn main() -> i32 { "
+        "  return moduleA.convert(1) + moduleB.convert(1); "
+        "}"
+    );
+
+    try {
+        TypeChecker checker;
+        checker.checkModule(
+            mainProgram, externalSignatures, {}, {}, /*requireMain=*/true
+        );
+        check(true,
+              "modules: two imported modules exposing the same "
+              "unqualified function name are disambiguated by "
+              "qualification, never ambiguous");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "modules: two imported modules exposing the same "
+                  "unqualified function name are disambiguated by "
+                  "qualification, never ambiguous (threw: ") +
+                  e.what() + ")");
+    }
+}
+
+void testCheckModuleRejectsWhenNonEntryModuleLacksMain() {
+    // requireMain = false: a library module is never required to
+    // declare 'main', and one that lacks it must still check
+    // successfully.
+    Program libraryProgram = parseProgram(
+        "fn helper() -> i32 { return 1; }"
+    );
+
+    try {
+        TypeChecker checker;
+        checker.checkModule(libraryProgram, {}, {}, {}, /*requireMain=*/false);
+        check(true,
+              "modules: a non-entry (library) module is not required "
+              "to declare 'main'");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "modules: a non-entry (library) module is not "
+                  "required to declare 'main' (threw: ") + e.what() + ")");
+    }
+
+    // The same program, checked as if it WERE the entry module
+    // (requireMain = true), must be rejected for lacking 'main' —
+    // confirming requireMain actually gates the check.
+    bool threw = false;
+    try {
+        TypeChecker checker;
+        checker.checkModule(libraryProgram, {}, {}, {}, /*requireMain=*/true);
+    } catch (const std::exception&) {
+        threw = true;
+    }
+
+    check(threw,
+          "modules: the entry module (requireMain=true) is still "
+          "rejected for lacking 'main'");
+}
+
+void testCollectModuleSymbolsRejectsDuplicateFunctionInOneModule() {
+    bool threw = false;
+    try {
+        collectSymbols(
+            "fn f() -> i32 { return 1; } "
+            "fn f() -> i32 { return 2; }"
+        );
+    } catch (const std::exception&) {
+        threw = true;
+    }
+
+    check(threw,
+          "modules: two functions sharing a name within the same "
+          "module is still rejected (unaffected by module support)");
+}
+
+void testTypeCheckerRejectsUnresolvedImportInSingleFileProgram() {
+    expectProgramThrows(
+        "type checker: a single-file program with an unresolved "
+        "'import' is rejected (multi-file compilation is required)",
+        "import colors; "
+        "fn main() -> i32 { return 0; }"
+    );
+}
+
 void testTypeCheckerRejectsDereferenceOfNonPointer() {
     expectProgramThrows(
         "type checker: rejects dereferencing a plain i32 value",
@@ -1164,6 +1408,14 @@ int main() {
     testTypeCheckerRejectsDuplicateEnumNames();
     testTypeCheckerPrefersStructVariableOverEnumOfTheSameName();
     testTypeCheckerAllowsEnumVariantRoundTrip();
+    testParserParsesImportDecl();
+    testParserParsesQualifiedCallAndTypeAndEnumAccess();
+    testCheckModuleAllowsCrossModuleFunctionStructAndEnum();
+    testCheckModuleRejectsUnqualifiedAccessToImportedSymbol();
+    testCheckModuleAllowsSameUnqualifiedNameInTwoModulesWithoutAmbiguity();
+    testCheckModuleRejectsWhenNonEntryModuleLacksMain();
+    testCollectModuleSymbolsRejectsDuplicateFunctionInOneModule();
+    testTypeCheckerRejectsUnresolvedImportInSingleFileProgram();
     testTypeCheckerRejectsDereferenceOfNonPointer();
     testTypeCheckerRejectsAddressOfUndeclaredVariable();
     testTypeCheckerRejectsStoreThroughNonPointer();

@@ -1,0 +1,5 @@
+import colors;
+
+fn main() -> i32 {
+    return colors.nonexistent(1);
+}

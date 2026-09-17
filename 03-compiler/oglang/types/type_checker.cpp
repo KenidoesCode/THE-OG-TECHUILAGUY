@@ -6,11 +6,6 @@
 
 namespace {
 
-using StructTable =
-    std::unordered_map<std::string, std::unordered_map<std::string, std::string>>;
-using EnumTable =
-    std::unordered_map<std::string, std::unordered_map<std::string, int>>;
-
 class Checker {
 public:
     Checker(
@@ -523,13 +518,13 @@ bool blockAlwaysReturns(
 
 }  // namespace
 
-void TypeChecker::check(const Program& program) {
-    signatures.clear();
-    structs.clear();
-    enums.clear();
+TypeChecker::ModuleSymbols TypeChecker::collectModuleSymbols(
+    const Program& program
+) {
+    ModuleSymbols result;
 
     for (const auto& enumDecl : program.enums) {
-        if (enums.contains(enumDecl.name)) {
+        if (result.enums.contains(enumDecl.name)) {
             throw std::runtime_error(
                 "Enum redefined: " + enumDecl.name
             );
@@ -550,17 +545,17 @@ void TypeChecker::check(const Program& program) {
             variants[variant] = static_cast<int>(i);
         }
 
-        enums[enumDecl.name] = std::move(variants);
+        result.enums[enumDecl.name] = std::move(variants);
     }
 
     for (const auto& structDecl : program.structs) {
-        if (structs.contains(structDecl.name)) {
+        if (result.structs.contains(structDecl.name)) {
             throw std::runtime_error(
                 "Struct redefined: " + structDecl.name
             );
         }
 
-        if (enums.contains(structDecl.name)) {
+        if (result.enums.contains(structDecl.name)) {
             throw std::runtime_error(
                 "'" + structDecl.name +
                 "' is declared as both a struct and an enum"
@@ -590,11 +585,11 @@ void TypeChecker::check(const Program& program) {
             fields[field.name] = field.type;
         }
 
-        structs[structDecl.name] = std::move(fields);
+        result.structs[structDecl.name] = std::move(fields);
     }
 
     for (const auto& function : program) {
-        if (signatures.contains(function.name)) {
+        if (result.signatures.contains(function.name)) {
             throw std::runtime_error(
                 "Function redefined: " + function.name
             );
@@ -628,8 +623,25 @@ void TypeChecker::check(const Program& program) {
 
         sig.returnType = function.returnType;
 
-        signatures[function.name] = std::move(sig);
+        result.signatures[function.name] = std::move(sig);
     }
+
+    return result;
+}
+
+void TypeChecker::check(const Program& program) {
+    if (!program.imports.empty()) {
+        throw std::runtime_error(
+            "Unresolved import: " + program.imports[0].moduleName +
+            " (multi-file compilation is required to resolve an "
+            "import — pass every source file on the command line)"
+        );
+    }
+
+    ModuleSymbols symbols = collectModuleSymbols(program);
+    signatures = std::move(symbols.signatures);
+    structs = std::move(symbols.structs);
+    enums = std::move(symbols.enums);
 
     if (!signatures.contains("main")) {
         throw std::runtime_error(
@@ -638,6 +650,54 @@ void TypeChecker::check(const Program& program) {
     }
 
     for (const auto& function : program) {
+        Checker checker(signatures, structs, enums);
+
+        for (const auto& param : function.params) {
+            checker.variables[param.name] = param.type;
+        }
+
+        checker.checkBlock(function.body, function.returnType);
+
+        if (!blockAlwaysReturns(function.body)) {
+            throw std::runtime_error(
+                "Function '" + function.name +
+                "' does not return on all paths"
+            );
+        }
+    }
+}
+
+void TypeChecker::checkModule(
+    const Program& moduleProgram,
+    const std::unordered_map<std::string, FunctionSignature>& externalSignatures,
+    const StructTable& externalStructs,
+    const EnumTable& externalEnums,
+    bool requireMain
+) {
+    ModuleSymbols own = collectModuleSymbols(moduleProgram);
+
+    signatures = externalSignatures;
+    for (auto& [name, sig] : own.signatures) {
+        signatures[name] = std::move(sig);
+    }
+
+    structs = externalStructs;
+    for (auto& [name, fields] : own.structs) {
+        structs[name] = std::move(fields);
+    }
+
+    enums = externalEnums;
+    for (auto& [name, variants] : own.enums) {
+        enums[name] = std::move(variants);
+    }
+
+    if (requireMain && !signatures.contains("main")) {
+        throw std::runtime_error(
+            "Program has no 'main' function"
+        );
+    }
+
+    for (const auto& function : moduleProgram) {
         Checker checker(signatures, structs, enums);
 
         for (const auto& param : function.params) {

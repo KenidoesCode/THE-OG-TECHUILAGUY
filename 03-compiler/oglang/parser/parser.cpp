@@ -46,7 +46,9 @@ Program Parser::parseProgram() {
     Program program;
 
     while (peek().kind != TokenKind::End) {
-        if (peek().kind == TokenKind::Struct) {
+        if (peek().kind == TokenKind::Import) {
+            program.imports.push_back(parseImportDecl());
+        } else if (peek().kind == TokenKind::Struct) {
             program.structs.push_back(parseStructDecl());
         } else if (peek().kind == TokenKind::Enum) {
             program.enums.push_back(parseEnumDecl());
@@ -56,6 +58,16 @@ Program Parser::parseProgram() {
     }
 
     return program;
+}
+
+ImportDecl Parser::parseImportDecl() {
+    expect(TokenKind::Import);
+
+    std::string moduleName = expect(TokenKind::Identifier).text;
+
+    expect(TokenKind::Semicolon);
+
+    return ImportDecl{moduleName};
 }
 
 EnumDecl Parser::parseEnumDecl() {
@@ -124,8 +136,17 @@ std::string Parser::parseType() {
     // name without checking it actually names a declared struct — the
     // parser stays permissive about type syntax; the type checker is
     // what rejects an identifier that isn't a real struct type.
+    // `module.Struct` (a qualified, imported struct type) is accepted
+    // the same way, folded into one "module.Struct" type-name string.
     if (peek().kind == TokenKind::Identifier) {
-        return advance().text;
+        std::string name = advance().text;
+
+        if (match(TokenKind::Dot)) {
+            std::string member = expect(TokenKind::Identifier).text;
+            return name + "." + member;
+        }
+
+        return name;
     }
 
     throw std::runtime_error("Expected type");
@@ -672,11 +693,41 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         }
 
         if (match(TokenKind::Dot)) {
-            std::string fieldName = expect(TokenKind::Identifier).text;
+            std::string member = expect(TokenKind::Identifier).text;
 
+            // module.function(args) — a qualified cross-module call.
+            if (peek().kind == TokenKind::LParen) {
+                auto args = parseArgList();
+
+                return std::make_unique<CallExpr>(
+                    name + "." + member,
+                    std::move(args)
+                );
+            }
+
+            // module.Enum.Variant — a qualified enum variant access.
+            // Folded into FieldAccessExpr as structVarName =
+            // "module.Enum" (one compound key), fieldName = "Variant",
+            // exactly like a qualified struct/enum type name in
+            // parseType() above; a bare local variable name can never
+            // contain a dot, so this can't collide with ordinary
+            // struct field access.
+            if (match(TokenKind::Dot)) {
+                std::string variant = expect(TokenKind::Identifier).text;
+
+                return std::make_unique<FieldAccessExpr>(
+                    name + "." + member,
+                    variant
+                );
+            }
+
+            // Plain struct field access (structVar.field) or a local
+            // (unqualified) enum variant access (EnumName.Variant) —
+            // told apart later by whether `name` is a declared struct
+            // variable or a declared local enum type.
             return std::make_unique<FieldAccessExpr>(
                 name,
-                fieldName
+                member
             );
         }
 

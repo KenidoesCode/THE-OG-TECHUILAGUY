@@ -96,6 +96,8 @@ std::vector<Token> Lexer::tokenize() {
                 kind = TokenKind::Struct;
             else if (text == "enum")
                 kind = TokenKind::Enum;
+            else if (text == "import")
+                kind = TokenKind::Import;
             else if (text == "if")
                 kind = TokenKind::If;
             else if (text == "else")

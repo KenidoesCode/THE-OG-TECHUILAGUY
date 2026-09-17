@@ -18,6 +18,23 @@ implementation. For the actual, honestly-labeled state of the memory
 model specifically (raw/unsafe pointers today, no ownership/borrowing),
 see [`../../docs/ADR/0001-oglang-memory-model.md`](../../docs/ADR/0001-oglang-memory-model.md).
 
+## Modules (implemented, v1)
+
+Unlike every other section in this document, this one describes real,
+tested, implemented behavior, not a design target — see
+[`../../docs/ADR/0002-oglang-modules.md`](../../docs/ADR/0002-oglang-modules.md)
+for the full design and its explicitly-scoped limits.
+
+- One source file is one module, named after its filename.
+- `import other;` makes `other`'s top-level functions/structs/enums
+  reachable only as `other.symbol` — never unqualified.
+- `ogc file1.og file2.og ...` compiles, links, and runs a real
+  multi-file program as one native binary.
+- Not implemented: separately-compiled objects (the whole program is
+  still lowered into one assembly file), transitive re-export,
+  selective/partial imports, visibility control, module aliasing, and
+  import cycles (rejected outright, not supported).
+
 ## Primitive Types
 
 bool

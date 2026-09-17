@@ -1,0 +1,14 @@
+struct Point {
+    x: i32,
+    y: i32
+}
+
+enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+fn brightness(level: i32) -> i32 {
+    return level * 2;
+}

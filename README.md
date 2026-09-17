@@ -172,7 +172,25 @@ lowers straight to a `ConstI32` immediate — no `AddressOfI32`, no
 `PtrSubI32`, no memory access whatsoever, the concrete way this is
 lighter-weight than struct field access.
 
-`03-compiler/oglang/tests/e2e_test.sh` runs twenty-three programs
+OGLang also has a first-version module system: one source file is one
+module, named after its filename; `import other;` makes `other`'s
+top-level functions/structs/enums reachable only as `other.symbol`
+(never unqualified — the reason two modules exposing the same name is
+never ambiguous), reusing existing syntax rather than inventing new
+syntax (`other.function(...)` is an ordinary `CallExpr` whose callee
+string contains a dot; `other.Enum.Variant` reuses the same
+`FieldAccessExpr` struct field access already uses). `ogc file1.og
+file2.og ...` parses every file, resolves imports into a dependency
+graph, rejects cycles and unknown modules/symbols outright, and
+compiles the whole program into one linked native binary — real
+multi-file compilation, not string concatenation. It is honestly a
+first version: no separately-compiled objects (the whole program is
+still lowered into one assembly file per build), no transitive
+re-export, no selective imports, no visibility control. See
+[`docs/ADR/0002-oglang-modules.md`](docs/ADR/0002-oglang-modules.md)
+for the full design and every explicitly-scoped limit.
+
+`03-compiler/oglang/tests/e2e_test.sh` runs twenty-seven programs
 end-to-end and checks their real process exit codes, including cases
 specifically chosen to fail under a naive calling convention, an
 unconstrained division lowering, superficial/fake spilling,
@@ -184,7 +202,7 @@ unpacking and argument marshaling, and
 two separate instances of the same 64-bit-pointer-truncation bug class
 (one in the pointer feature itself, one in array element addressing).
 Frontend and codegen invariants are additionally covered by
-`03-compiler/oglang/tests/unit_test.sh` (121 assertions). The type checker
+`03-compiler/oglang/tests/unit_test.sh` (133 assertions). The type checker
 also verifies every function returns on
 all paths (an `if` without an `else`, or a function ending in a bare
 `while` loop, is rejected — a loop may run zero times).
@@ -296,7 +314,8 @@ heap, filesystem, or networking are implemented yet — see
 - [x] `const`/`mut` pointer distinction (`constptr`/`ptr`), compile-time only, no runtime cost — a `ptr` widens into a `constptr`, writes through a `constptr` are rejected by the type checker; not ownership or borrowing (see [ADR 0001](docs/ADR/0001-oglang-memory-model.md))
 - [x] Struct types: `struct Name { field: type, ... }`, zero-initialized locals, field read/write (`p.x`, `p.x = v;`) reusing array address arithmetic with compile-time-constant field offsets (no bounds check needed); fields restricted to `i32`/`ptr`/`constptr`, structs not yet supported as function parameters/return types
 - [x] Enum types: `enum Name { Variant, ... }`, `Name.Variant` reusing struct field-access dot syntax, resolved entirely at compile time to a declaration-order ordinal — named `i32` constants, not a distinct nominal type; no storage, no exhaustiveness/pattern matching
-- [ ] `for` loops, modules, nested/struct-typed-array fields, struct function parameters/returns
+- [x] First-version module system: one file = one module, `import other;`, qualified access only (`other.symbol`, never unqualified — never ambiguous across modules), cycles rejected outright; `ogc a.og b.og ...` compiles and links a real multi-file program into one binary (see [ADR 0002](docs/ADR/0002-oglang-modules.md) for exact scope: no separate objects, no transitive re-export, no selective imports, no visibility control)
+- [ ] `for` loops, nested/struct-typed-array fields, struct function parameters/returns
 - [ ] A real borrow-checking pass, generics, traits, safe concurrency
 - [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation
 - [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)

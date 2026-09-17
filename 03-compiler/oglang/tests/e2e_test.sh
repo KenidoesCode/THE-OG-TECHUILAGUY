@@ -109,4 +109,80 @@ check "out-of-range array index traps (exit 101) instead of reading past the arr
 check "negative array index traps (exit 101) via the same unsigned bounds check" \
     "tests/programs/array_negative_index.og" 101
 
+# --- Multi-file modules ---
+#
+# One source file is one module, named after its filename (without
+# extension); `import other;` makes `other`'s functions/structs/enums
+# reachable only as `other.symbol`. See
+# docs/ADR/0002-oglang-modules.md for the full design. These tests
+# compile and link a REAL multi-file program into one native binary,
+# the same way check() does for a single file — not just "the parser
+# accepts the syntax."
+
+checkMulti() {
+    local desc="$1"
+    shift
+    local expected="${@: -1}"
+    local files=("${@:1:$#-1}")
+
+    ./ogc "${files[@]}" >/tmp/ogc_e2e_out.txt 2>&1
+    if [ $? -ne 0 ]; then
+        echo "[FAIL] $desc — compilation failed"
+        cat /tmp/ogc_e2e_out.txt
+        FAIL=1
+        return
+    fi
+
+    ./main
+    local actual=$?
+
+    if [ "$actual" -eq "$expected" ]; then
+        echo "[PASS] $desc — expected $expected, got $actual"
+    else
+        echo "[FAIL] $desc — expected $expected, got $actual"
+        FAIL=1
+    fi
+}
+
+# A negative multi-file test: compilation (not execution) must fail,
+# and stderr must contain a specific substring — proving the failure
+# is the *intended* diagnostic, not compilation succeeding by accident
+# or failing for an unrelated reason.
+checkMultiFails() {
+    local desc="$1"
+    local expectedSubstring="$2"
+    shift 2
+    local files=("$@")
+
+    ./ogc "${files[@]}" >/tmp/ogc_e2e_out.txt 2>&1
+    if [ $? -eq 0 ]; then
+        echo "[FAIL] $desc — compilation unexpectedly succeeded"
+        FAIL=1
+        return
+    fi
+
+    if grep -qF "$expectedSubstring" /tmp/ogc_e2e_out.txt; then
+        echo "[PASS] $desc"
+    else
+        echo "[FAIL] $desc — expected diagnostic containing '$expectedSubstring', got:"
+        cat /tmp/ogc_e2e_out.txt
+        FAIL=1
+    fi
+}
+
+checkMulti "modules: cross-module function call, struct type, and enum access, all in one linked binary" \
+    "tests/programs/modules/module_main.og" "tests/programs/modules/colors.og" 25
+
+checkMultiFails "modules: importing an unknown module is a compile error" \
+    "Unknown module in import: 'doesnotexist'" \
+    "tests/programs/modules/bad_import.og" "tests/programs/modules/colors.og"
+
+checkMultiFails "modules: calling an unknown symbol on a real imported module is a compile error" \
+    "Call to undefined function: colors.nonexistent" \
+    "tests/programs/modules/bad_symbol.og" "tests/programs/modules/colors.og"
+
+checkMultiFails "modules: a circular import (A imports B, B imports A) is rejected, not silently accepted" \
+    "Circular module import detected" \
+    "tests/programs/modules/cycle_a.og" "tests/programs/modules/cycle_b.og"
+
 exit $FAIL
