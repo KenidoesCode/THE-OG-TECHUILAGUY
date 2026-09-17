@@ -112,10 +112,39 @@ networking.
   the kernel and every other task (including the ongoing scheduler
   lifecycle test and the timer) confirmed to keep running afterward.
 
+- **a real kernel heap**: `heap/` implements `kmalloc`/`kfree` on top
+  of the physical page allocator — a first-fit, address-ordered
+  free-list allocator with real block splitting (a large free block is
+  cut down to the requested size, leaving the remainder as its own
+  free block, rather than handing out the whole thing) and coalescing
+  (freeing a block merges it with an immediately adjacent free
+  neighbor in either direction). Each heap *segment* is exactly one
+  physical page obtained via `memory_alloc_page()` — a segment's blocks
+  only ever coalesce with each other, never across segments, since two
+  pages from the physical allocator aren't guaranteed to be physically
+  contiguous. A single allocation therefore cannot exceed one page
+  minus header overhead; `kmalloc` returns `null` rather than a bogus
+  pointer if that limit is hit or the physical allocator itself is
+  exhausted, and a double-free is a safe no-op (a best-effort guard,
+  not real corruption detection — there is no canary or pointer
+  validation, exactly like a hosted C `free()`).
+  The allocator logic itself (splitting, coalescing, first-fit search)
+  is hardware-independent and unit-tested with a hosted compiler
+  (`tests/heap_test.cpp`, `tests/heap_test.sh`) against a fake page
+  allocator backed by real host memory — the real
+  `memory_alloc_page()` hands back raw physical addresses only
+  dereferenceable inside the kernel's own identity-mapped address
+  space, so a hosted test process needs its own stand-in rather than
+  linking `memory/memory.cpp` directly, the same reasoning
+  `tests/keyboard_translation_test.sh` already applies to the keyboard
+  driver's scancode table. `tests/boot_test.sh` additionally runs a
+  real boot-time self-test against the actual physical allocator and
+  identity-mapped kernel address space: allocate two blocks, write
+  through both, confirm neither corrupts the other, free one, and
+  confirm reallocating the same size reuses the exact freed block.
+
 ## Not yet implemented
 
-- a kernel heap (`malloc`-style allocation on top of the physical page
-  allocator)
 - more than one userland program's worth of syscalls (no exec, no
   fork, no IPC)
 - shifted/uppercase keyboard input, modifier keys, non-US layouts
@@ -137,4 +166,5 @@ make run        # boot it in QEMU with -serial stdio
 bash tests/boot_test.sh                  # automated boot + scheduler lifecycle test
 bash tests/keyboard_test.sh              # boots + injects real scancodes via QEMU's monitor
 bash tests/keyboard_translation_test.sh  # hosted unit test, no boot cycle needed
+bash tests/heap_test.sh                  # hosted unit test of the kmalloc/kfree allocator logic
 ```

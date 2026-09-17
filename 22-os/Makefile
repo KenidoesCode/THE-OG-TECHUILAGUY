@@ -16,6 +16,7 @@ SOURCES := \
     kernel/kernel.cpp \
     kernel/serial.cpp \
     memory/memory.cpp \
+    heap/heap.cpp \
     gdt/gdt.cpp \
     gdt/gdt_flush.S \
     paging/paging.cpp \

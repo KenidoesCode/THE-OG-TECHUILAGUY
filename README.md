@@ -339,7 +339,8 @@ heap, filesystem, or networking are implemented yet — see
 - [x] Techuilaguy OS — PS/2 keyboard driver (verified against real injected scancodes via QEMU's monitor, not just a unit-tested translation table)
 - [x] Techuilaguy OS — GDT + TSS + ring-3 userspace + syscall entry (verified against a real ring-3 program and a real privilege-violation fault, both against actual boot behavior)
 - [x] Techuilaguy OS — real paging with genuine per-process address spaces (own page directory/table per task, CR3 switched per context switch; verified against a real ring-3 program reading unmapped kernel memory and a second reading past its own private region, both faulting and killed in isolation)
-- [ ] Techuilaguy OS — per-process address spaces, kernel heap, storage/network drivers, filesystem
+- [x] Techuilaguy OS — a real kernel heap (`kmalloc`/`kfree`, first-fit free-list with real block splitting and coalescing on top of the physical page allocator; verified both by 16 hosted unit tests of the allocator logic and by a real boot-time alloc/write/free/reuse self-test)
+- [ ] Techuilaguy OS — storage/network drivers, filesystem, ELF loader, process creation, init/shell
 - [ ] Techuilaguy L1, Storage, Cloud, AI, Quantum, Space Systems
 
 See [`PROJECT_STATE.md`](./PROJECT_STATE.md) for the full, honestly-labeled

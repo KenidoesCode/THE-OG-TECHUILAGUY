@@ -51,6 +51,9 @@ check() {
 check "TECHUILAGUY OS KERNEL"        "kernel banner printed over serial"
 check "\[BOOT\] kernel entered"      "kernel entry reached"
 check "\[MEM \] physical frame allocator online" "physical frame allocator initialized"
+check "\[HEAP\] kernel heap online" "kernel heap initialized"
+check "\[PASS\] kernel heap: alloc, write-back, free, and reuse all correct" \
+    "kernel heap self-test: a real kmalloc'd pointer is genuinely writable/readable, two allocations don't overlap, and freeing+reallocating the same size reuses the freed block"
 check "\[GDT \] GDT + TSS installed" "GDT and TSS installed, segments reloaded onto our own descriptors"
 check "\[PAGE\] paging enabled" "paging enabled (CR0.PG set) without a triple fault"
 check "\[INT \] real IDT installed"  "IDT installed"

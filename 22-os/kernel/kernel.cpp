@@ -1,6 +1,7 @@
 #include "../kernel/serial.hpp"
 
 #include "../memory/memory.hpp"
+#include "../heap/heap.hpp"
 #include "../gdt/gdt.hpp"
 #include "../paging/paging.hpp"
 #include "../interrupts/interrupts.hpp"
@@ -44,6 +45,56 @@ void writeDecimal(uint32_t value) {
     }
 
     serial_write(&buffer[position]);
+}
+
+// --------------------------------------------------------------
+// Kernel heap self-test.
+//
+// Runs once at boot, before the scheduler starts, and prints a single
+// PASS/FAIL line the boot test asserts on. Exercises the same
+// allocate/write/free/reuse round trip the hosted unit tests
+// (tests/heap_test.cpp) already cover in isolation, but here against
+// the *real* physical page allocator and the real identity-mapped
+// kernel address space — proving kmalloc's pointers are genuinely
+// dereferenceable kernel memory, not just non-null values a hosted
+// stand-in happened to accept.
+// --------------------------------------------------------------
+
+void runHeapSelfTest() {
+    void* a = kmalloc(64);
+    void* b = kmalloc(128);
+
+    bool basicAllocOk = (a != nullptr) && (b != nullptr) && (a != b);
+
+    if (!basicAllocOk) {
+        serial_write("[FAIL] kernel heap: initial allocations failed\n");
+        return;
+    }
+
+    auto* aBytes = static_cast<uint8_t*>(a);
+    auto* bBytes = static_cast<uint8_t*>(b);
+
+    for (uint32_t i = 0; i < 64; ++i) aBytes[i] = 0xAB;
+    for (uint32_t i = 0; i < 128; ++i) bBytes[i] = 0xCD;
+
+    bool noOverlap = true;
+    for (uint32_t i = 0; i < 64; ++i) {
+        if (aBytes[i] != 0xAB) noOverlap = false;
+    }
+    for (uint32_t i = 0; i < 128; ++i) {
+        if (bBytes[i] != 0xCD) noOverlap = false;
+    }
+
+    kfree(a);
+    void* c = kmalloc(64);
+    bool reuseOk = (c == a);
+
+    kfree(b);
+    kfree(c);
+
+    serial_write((basicAllocOk && noOverlap && reuseOk)
+        ? "[PASS] kernel heap: alloc, write-back, free, and reuse all correct\n"
+        : "[FAIL] kernel heap: alloc/write-back/free/reuse test failed\n");
 }
 
 // --------------------------------------------------------------
@@ -179,6 +230,10 @@ extern "C" void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
 
     memory_init();
     serial_write("[MEM ] physical frame allocator online\n");
+
+    heap_init();
+    serial_write("[HEAP] kernel heap online\n");
+    runHeapSelfTest();
 
     gdt_init();
     paging_init();
