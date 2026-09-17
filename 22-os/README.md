@@ -3,10 +3,10 @@
 A from-first-principles operating-system prototype inside THE OG TECHUILAGUY.
 
 **Status: PROTOTYPE.** Boots under QEMU and passes automated tests that
-assert on real serial console output and, for the keyboard driver, on
-real injected PS/2 input — not just that the kernel prints a banner. Not
-a production OS: single privilege ring, no userspace, no storage or
-network drivers, no filesystem, no networking.
+assert on real serial console output, real ring-3 privilege enforcement,
+and real injected PS/2 input — not just that the kernel prints a banner.
+Not a production OS: no paging/virtual memory, no storage or network
+drivers, no filesystem, no networking.
 
 ## Implemented and tested
 
@@ -38,10 +38,46 @@ network drivers, no filesystem, no networking.
   half is verified by actually booting the kernel and injecting real
   scancodes through QEMU's monitor (`tests/keyboard_test.sh`), not just
   by testing the table in isolation
+- **a real GDT + TSS + ring-3 userspace**: this kernel previously had no
+  GDT at all — `isr_common` and the scheduler both hardcoded `0x18` as
+  "the kernel data selector", an unverified assumption inherited from
+  whatever GRUB's own default GDT happened to leave in place. `gdt/`
+  now builds and installs the kernel's own GDT (null, kernel
+  code/data, user code/data, TSS) and reloads every segment register,
+  including CS via a far jump. The TSS's `ss0:esp0` is kept in sync
+  with whichever task is about to run (`tss_set_kernel_stack`, called
+  from the scheduler's `switchTo`) so a ring-3 task's stack is always
+  correct the instant it takes any interrupt, timer tick, or syscall.
+  `scheduler_create_user_task` builds a task from a real flat
+  machine-code image (see `userland/`) copied into an allocated
+  physical page (identity-mapped; no paging yet), running at CPL 3 with
+  its own separate user-mode stack page. `int $0x80` (a dedicated
+  DPL-3 IDT gate — every other gate is DPL 0, so only this one can be
+  invoked directly from ring 3) reaches a real syscall dispatcher
+  (`syscalls/syscalls.cpp`: SYS_WRITE, SYS_YIELD, SYS_EXIT implemented;
+  SYS_OPEN/READ/CLOSE honestly report "not implemented" rather than
+  faking success). A CPU exception raised by ring-3 code (checked via
+  the interrupted CS's RPL) terminates only that task — the kernel and
+  every other task keep running — rather than halting the system the
+  way a kernel-mode exception still does.
+  `tests/boot_test.sh` verifies all of this against real boot
+  behavior: a genuine ring-3 program (`userland/hello.S`) reaches the
+  kernel through `SYS_WRITE` and survives an unrecognized syscall
+  number (99) without crashing; a second one (`userland/evil.S`)
+  executes `cli` directly from CPL 3, which must fault with #GP (a
+  privileged instruction requires CPL <= IOPL, which ring 3 never
+  satisfies here) — the test confirms that program's code *after* the
+  fault never ran, that it printed `[FAULT] ... killed by exception 13`
+  rather than halting the kernel, and that the rest of the system
+  (timer ticks, the other scheduler tasks) kept running afterward.
 
 ## Not yet implemented
 
-- userspace / ring 3, GDT/TSS-based privilege separation
+- paging / virtual memory (all physical pages are identity-mapped;
+  user code has no memory protection from other user code, only from
+  directly executing privileged instructions or ports)
+- more than one userland program's worth of syscalls (no exec, no
+  fork, no IPC)
 - shifted/uppercase keyboard input, modifier keys, non-US layouts
 - drivers beyond the timer, PIC, and keyboard (no storage, no
   networking)
@@ -50,7 +86,7 @@ network drivers, no filesystem, no networking.
   static, fixed-size, and fixed in number — see `MAX_TASKS` in
   `scheduler/scheduler.cpp`)
 - stack overflow detection for task stacks
-- more than 4 tasks at a time
+- more than 6 tasks at a time
 
 ## Building and testing
 

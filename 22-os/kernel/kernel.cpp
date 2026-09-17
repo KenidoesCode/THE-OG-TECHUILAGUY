@@ -1,6 +1,7 @@
 #include "../kernel/serial.hpp"
 
 #include "../memory/memory.hpp"
+#include "../gdt/gdt.hpp"
 #include "../interrupts/interrupts.hpp"
 #include "../interrupts/pic.hpp"
 #include "../scheduler/scheduler.hpp"
@@ -9,6 +10,17 @@
 #include "../vfs/vfs.hpp"
 #include "../security/security.hpp"
 #include "../drivers/keyboard.hpp"
+
+// Embedded userland flat binaries — see the Makefile's
+// USERLAND_EMBED_OBJECTS rule (objcopy -I binary synthesizes these
+// _binary_<path>_start/_end symbols from userland/hello.bin and
+// userland/evil.bin).
+extern "C" {
+    extern const uint8_t _binary_userland_hello_bin_start[];
+    extern const uint8_t _binary_userland_hello_bin_end[];
+    extern const uint8_t _binary_userland_evil_bin_start[];
+    extern const uint8_t _binary_userland_evil_bin_end[];
+}
 
 namespace {
 
@@ -164,6 +176,8 @@ extern "C" void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     memory_init();
     serial_write("[MEM ] physical frame allocator online\n");
 
+    gdt_init();
+
     interrupts_init();
     pic_init();
 
@@ -195,6 +209,34 @@ extern "C" void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write(") and task B (pid ");
     writeDecimal(static_cast<uint32_t>(taskBPid));
     serial_write(")\n");
+
+    serial_write("------------------------------------\n");
+    serial_write("TECHUILAGUY OS RING-3 USERSPACE TEST\n");
+    serial_write("------------------------------------\n");
+
+    uint32_t helloLen = static_cast<uint32_t>(
+        _binary_userland_hello_bin_end - _binary_userland_hello_bin_start
+    );
+    uint32_t evilLen = static_cast<uint32_t>(
+        _binary_userland_evil_bin_end - _binary_userland_evil_bin_start
+    );
+
+    int helloPid = scheduler_create_user_task(
+        _binary_userland_hello_bin_start, helloLen
+    );
+    int evilPid = scheduler_create_user_task(
+        _binary_userland_evil_bin_start, evilLen
+    );
+
+    serial_write("[TEST] created ring-3 task 'hello' (pid ");
+    writeDecimal(static_cast<uint32_t>(helloPid));
+    serial_write(", ");
+    writeDecimal(helloLen);
+    serial_write(" bytes) and 'evil' (pid ");
+    writeDecimal(static_cast<uint32_t>(evilPid));
+    serial_write(", ");
+    writeDecimal(evilLen);
+    serial_write(" bytes)\n");
 
     pic_unmask_irq(0);
     serial_write("[TEST] IRQ0 unmasked\n");

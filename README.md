@@ -133,8 +133,23 @@ to ASCII (US QWERTY, unshifted). `22-os/tests/keyboard_test.sh` boots the
 kernel and injects real scancodes through QEMU's monitor to verify the
 hardware-facing path end-to-end; the translation table itself has no
 hardware I/O and is separately unit-tested with a hosted compiler
-(`22-os/tests/keyboard_translation_test.sh`). No userspace, storage/network
-drivers, or filesystem are implemented yet — see `22-os/README.md`.
+(`22-os/tests/keyboard_translation_test.sh`).
+
+**Real ring-3 userspace**: a from-scratch GDT + TSS (there was no GDT at
+all before this — `isr_common` and the scheduler both hardcoded `0x18`
+as "the kernel data selector", an unverified assumption inherited from
+the bootloader's own default), a syscall entry (`int $0x80`, a
+dedicated DPL-3 IDT gate) reaching a real dispatcher (`SYS_WRITE`,
+`SYS_YIELD`, `SYS_EXIT` implemented), and genuine privilege enforcement:
+a real flat-machine-code ring-3 program (`22-os/userland/hello.S`)
+reaches the kernel only through syscalls and survives an invalid
+syscall number without crashing, while a second one
+(`22-os/userland/evil.S`) executes a privileged instruction (`cli`)
+directly from CPL 3 and is verified to fault (#GP) and be terminated in
+isolation — the kernel and every other task keep running, and the
+faulting program's own code after that point is verified to never
+execute. No paging, no filesystem, and no networking are implemented
+yet — see `22-os/README.md`.
 
 ## 🧩 Domains
 
@@ -166,7 +181,8 @@ drivers, or filesystem are implemented yet — see `22-os/README.md`.
 - [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation
 - [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)
 - [x] Techuilaguy OS — PS/2 keyboard driver (verified against real injected scancodes via QEMU's monitor, not just a unit-tested translation table)
-- [ ] Techuilaguy OS — userspace, storage/network drivers, filesystem
+- [x] Techuilaguy OS — GDT + TSS + ring-3 userspace + syscall entry (verified against a real ring-3 program and a real privilege-violation fault, both against actual boot behavior)
+- [ ] Techuilaguy OS — paging/virtual memory, storage/network drivers, filesystem
 - [ ] Techuilaguy L1, Storage, Cloud, AI, Quantum, Space Systems
 
 ## 🔐 Principles

@@ -51,12 +51,41 @@ check() {
 check "TECHUILAGUY OS KERNEL"        "kernel banner printed over serial"
 check "\[BOOT\] kernel entered"      "kernel entry reached"
 check "\[MEM \] physical frame allocator online" "physical frame allocator initialized"
+check "\[GDT \] GDT + TSS installed" "GDT and TSS installed, segments reloaded onto our own descriptors"
 check "\[INT \] real IDT installed"  "IDT installed"
 check "\[SCHED\] scheduler initialized" "scheduler initialized"
+check "\[SYS \] syscall dispatch online" "syscall dispatch (int \$0x80) online"
 check "\[SYS \] syscall subsystem initialized" "syscall subsystem initialized"
 check "\[VFS \] virtual filesystem initialized" "VFS initialized"
 check "\[SEC \] capability security initialized" "security subsystem initialized"
 check "\[PIT \] programmable timer online" "PIT programmed"
+
+# --- Ring-3 userspace: a real privilege transition, a real syscall
+# path, and real privilege enforcement — not simulated or asserted by
+# code inspection. "hello" is genuine ring-3 machine code that can only
+# reach the serial port through the kernel-mediated SYS_WRITE syscall
+# (a direct outb from CPL 3 with no I/O permission bitmap set in the
+# TSS would itself fault); "evil" proves the reverse — that a
+# privileged instruction executed directly from ring 3 is *rejected*,
+# not silently allowed.
+check "created ring-3 task 'hello'" \
+    "a ring-3 task is created from a real flat machine-code image"
+
+check "^U!\$" \
+    "ring-3 code reached the kernel through SYS_WRITE and printed via it, twice, with an unrecognized syscall number (99) survived silently in between"
+
+check "^E" \
+    "the second ring-3 task also reached the kernel via SYS_WRITE before attempting a privileged instruction"
+
+check "\[FAULT\] ring-3 task killed by exception 13" \
+    "executing a privileged instruction (cli) at CPL 3 faults with #GP and the offending task is killed, not the kernel"
+
+if grep -q "^X\$" "$LOG"; then
+    echo "[FAIL] boot: ring-3 code after the privileged instruction ran — privilege isolation did not actually block it"
+    FAIL=1
+else
+    echo "[PASS] boot: code after the privileged instruction never ran — the faulting task was genuinely terminated, not merely warned about"
+fi
 
 check "task A exited after 5 run(s)" \
     "a task actually ran, hit its exit condition, and called scheduler_exit"

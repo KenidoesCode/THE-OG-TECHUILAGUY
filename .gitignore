@@ -13,6 +13,9 @@
 # Object files, linked binaries, disk images, emulator logs
 *.o
 *.iso
+*.elf
+*.bin
 22-os/techuilaguy-os
 22-os/qemu.log
 22-os/iso/
+22-os/tests/keyboard_translation_test_bin

@@ -28,3 +28,21 @@ extern "C" void serial_write(const char* text) {
         ++text;
     }
 }
+
+extern "C" void serial_write_decimal(uint32_t value) {
+    char buffer[11];
+    int position = 10;
+    buffer[position] = '\0';
+
+    if (value == 0) {
+        serial_write_char('0');
+        return;
+    }
+
+    while (value > 0) {
+        buffer[--position] = static_cast<char>('0' + (value % 10));
+        value /= 10;
+    }
+
+    serial_write(&buffer[position]);
+}

@@ -28,4 +28,6 @@ SECTIONS
         *(COMMON)
         *(.bss*)
     } :data
+
+    _kernel_end = .;
 }

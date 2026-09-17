@@ -11,6 +11,12 @@ constexpr uint32_t BITMAP_SIZE = PAGE_COUNT / 8;
 uint8_t bitmap[BITMAP_SIZE];
 
 uint32_t allocated_pages = 0;
+uint32_t reserved_pages = 0;
+
+// Defined by the linker script: the first address past the kernel's own
+// loaded image (text/rodata/data/bss). Never a real object to read —
+// only its address matters.
+extern "C" uint8_t _kernel_end;
 
 void mark_used(uint32_t page) {
     bitmap[page / 8] |=
@@ -37,21 +43,40 @@ extern "C" void memory_init() {
         bitmap[i] = 0;
 
     /*
-     * Reserve the first 1 MiB.
+     * Reserve everything from address 0 through the end of the
+     * kernel's own loaded image.
      *
-     * This region contains boot/kernel/hardware-sensitive
-     * memory and is not available to the general allocator.
+     * The kernel is linked to start exactly at the 1 MiB mark (see
+     * linker.ld), so a fixed "reserve the first 1 MiB" guess reserves
+     * *nothing* of the kernel's actual code/data/bss — the very first
+     * call to memory_alloc_page() would hand back address 0x100000,
+     * the kernel's own first instruction, for immediate overwriting.
+     * This was never exercised before now: memory_alloc_page() had no
+     * callers anywhere in the tree until real userspace pages needed
+     * one.
      */
-    constexpr uint32_t RESERVED =
-        1024 * 1024 / PAGE_SIZE;
+    uintptr_t kernelEnd =
+        reinterpret_cast<uintptr_t>(&_kernel_end);
+
+    uint32_t reservedBytes =
+        static_cast<uint32_t>(kernelEnd) > (1024u * 1024u)
+            ? static_cast<uint32_t>(kernelEnd)
+            : (1024u * 1024u);
+
+    reserved_pages =
+        (reservedBytes + PAGE_SIZE - 1) / PAGE_SIZE;
+
+    if (reserved_pages > PAGE_COUNT) {
+        reserved_pages = PAGE_COUNT;
+    }
 
     for (uint32_t page = 0;
-         page < RESERVED;
+         page < reserved_pages;
          ++page) {
         mark_used(page);
     }
 
-    allocated_pages = RESERVED;
+    allocated_pages = reserved_pages;
 }
 
 extern "C" uintptr_t memory_alloc_page() {
@@ -91,12 +116,9 @@ extern "C" void memory_free_page(uintptr_t address) {
         return;
 
     /*
-     * Never free the reserved low-memory region.
+     * Never free the reserved region covering the kernel's own image.
      */
-    constexpr uint32_t RESERVED =
-        1024 * 1024 / PAGE_SIZE;
-
-    if (page < RESERVED)
+    if (page < reserved_pages)
         return;
 
     mark_free(page);

@@ -4,6 +4,8 @@
 #include "../scheduler/pit.hpp"
 #include "../scheduler/scheduler.hpp"
 #include "../drivers/keyboard.hpp"
+#include "../gdt/gdt.hpp"
+#include "../syscalls/syscalls.hpp"
 
 struct IDTEntry {
     uint16_t offset_low;
@@ -57,24 +59,15 @@ extern "C" void isr31();
 extern "C" void irq0();
 extern "C" void irq1();
 extern "C" void isr_yield();
+extern "C" void isr_syscall();
 
 using ISR = void (*)();
-
-static uint16_t kernel_code_selector() {
-    uint16_t cs;
-
-    asm volatile(
-        "movw %%cs, %0"
-        : "=r"(cs)
-    );
-
-    return cs;
-}
 
 static void idt_set_gate(
     uint8_t vector,
     uintptr_t handler,
-    uint16_t selector
+    uint16_t selector,
+    uint8_t dpl
 ) {
     idt[vector].offset_low =
         static_cast<uint16_t>(handler & 0xFFFF);
@@ -82,8 +75,14 @@ static void idt_set_gate(
     idt[vector].selector = selector;
     idt[vector].zero = 0;
 
-    // 32-bit interrupt gate, present, DPL=0.
-    idt[vector].type_attr = 0x8E;
+    // 32-bit interrupt gate, present, DPL as given. DPL controls which
+    // privilege levels may *execute* `int` against this vector
+    // directly (hardware- and CPU-raised exceptions/IRQs always reach
+    // their gate regardless of DPL) — every gate here is DPL 0 except
+    // the syscall vector, which must be DPL 3 or a ring-3 `int $0x80`
+    // would fault with #GP instead of entering the kernel at all.
+    idt[vector].type_attr =
+        static_cast<uint8_t>(0x8E | ((dpl & 0x3) << 5));
 
     idt[vector].offset_high =
         static_cast<uint16_t>((handler >> 16) & 0xFFFF);
@@ -93,7 +92,8 @@ static void install_exception(uint8_t vector, ISR handler) {
     idt_set_gate(
         vector,
         reinterpret_cast<uintptr_t>(handler),
-        kernel_code_selector()
+        KERNEL_CODE_SELECTOR,
+        0
     );
 }
 
@@ -143,19 +143,31 @@ void interrupts_init() {
     idt_set_gate(
         32,
         reinterpret_cast<uintptr_t>(irq0),
-        kernel_code_selector()
+        KERNEL_CODE_SELECTOR,
+        0
     );
 
     idt_set_gate(
         33,
         reinterpret_cast<uintptr_t>(irq1),
-        kernel_code_selector()
+        KERNEL_CODE_SELECTOR,
+        0
     );
 
     idt_set_gate(
         YIELD_VECTOR,
         reinterpret_cast<uintptr_t>(isr_yield),
-        kernel_code_selector()
+        KERNEL_CODE_SELECTOR,
+        0
+    );
+
+    // DPL 3: this is the one gate ring-3 userland is allowed to invoke
+    // directly with `int`.
+    idt_set_gate(
+        SYSCALL_VECTOR,
+        reinterpret_cast<uintptr_t>(isr_syscall),
+        KERNEL_CODE_SELECTOR,
+        3
     );
 
     idt_pointer.limit = sizeof(idt) - 1;
@@ -181,7 +193,26 @@ extern "C" uint32_t interrupt_handler(InterruptFrame* frame) {
         }
     }
 
+    uint32_t currentEsp = reinterpret_cast<uint32_t>(frame);
+
     if (frame->interrupt_number < IRQ_BASE_VECTOR) {
+        // RPL of the interrupted CS: 3 means this exception was raised
+        // by a ring-3 program (an illegal instruction, a privileged
+        // operation like `cli` at CPL 3, a bad memory access, integer
+        // division fault, etc.), not by the kernel itself. Terminating
+        // just that task instead of halting the whole system is the
+        // actual point of privilege separation — a misbehaving user
+        // program must not be able to take down the kernel.
+        bool fromUserMode = (frame->cs & 0x3) == 3;
+
+        if (fromUserMode) {
+            serial_write("[FAULT] ring-3 task killed by exception ");
+            serial_write_decimal(frame->interrupt_number);
+            serial_write("\n");
+
+            return scheduler_terminate_current(currentEsp);
+        }
+
         serial_write("[EXC ] CPU exception\n");
 
         while (true) {
@@ -189,12 +220,14 @@ extern "C" uint32_t interrupt_handler(InterruptFrame* frame) {
         }
     }
 
-    uint32_t currentEsp = reinterpret_cast<uint32_t>(frame);
-
     // The software yield vector carries no PIC-owned hardware interrupt
     // to acknowledge; it is pure scheduling policy.
     if (frame->interrupt_number == YIELD_VECTOR) {
         return scheduler_on_yield(currentEsp);
+    }
+
+    if (frame->interrupt_number == SYSCALL_VECTOR) {
+        return syscall_dispatch(frame);
     }
 
     if (frame->interrupt_number >= IRQ_BASE_VECTOR &&

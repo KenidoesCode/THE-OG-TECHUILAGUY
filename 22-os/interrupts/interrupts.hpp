@@ -10,6 +10,11 @@ inline constexpr uint32_t KEYBOARD_VECTOR = IRQ_BASE_VECTOR + 1;
 // Software interrupt tasks use to voluntarily reschedule.
 inline constexpr uint32_t YIELD_VECTOR = 129;
 
+// Ring-3 userland's syscall entry point (its IDT gate is installed
+// with DPL 3, unlike every other gate, so CPL-3 code is permitted to
+// execute `int $0x80` at all).
+inline constexpr uint32_t SYSCALL_VECTOR = 128;
+
 struct InterruptFrame {
     uint32_t gs;
     uint32_t fs;

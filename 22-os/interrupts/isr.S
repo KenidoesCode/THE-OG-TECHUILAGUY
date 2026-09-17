@@ -70,9 +70,10 @@ isr_common:
     pushl %gs
 
     /*
-     * Kernel data selector.
+     * Kernel data selector (see gdt/gdt.hpp — this kernel's own GDT,
+     * not the bootloader's, is authoritative now).
      */
-    movw $0x18, %ax
+    movw $0x10, %ax
     movw %ax, %ds
     movw %ax, %es
     movw %ax, %fs
@@ -152,6 +153,23 @@ ISR_NO_ERROR 129
 .global isr_yield
 .type isr_yield, @function
 isr_yield = isr129
+
+
+/* ---------------------------------------------------------
+ * Syscall interrupt.
+ *
+ * Ring-3 userland's only sanctioned way into the kernel: `int $0x80`.
+ * Its IDT gate (see interrupts.cpp) is installed with DPL 3, unlike
+ * every other gate here, specifically so ring-3 code is allowed to
+ * execute it at all — executing `int` against a DPL-0 gate from CPL 3
+ * would fault with #GP instead of transferring control.
+ * --------------------------------------------------------- */
+
+ISR_NO_ERROR 128
+
+.global isr_syscall
+.type isr_syscall, @function
+isr_syscall = isr128
 
 
 .section .note.GNU-stack,"",@progbits

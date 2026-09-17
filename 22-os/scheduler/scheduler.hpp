@@ -25,6 +25,25 @@ extern "C" uint32_t scheduler_on_yield(uint32_t currentEsp);
 // if the task table is full.
 int scheduler_create_task(TaskEntry entry);
 
+// Creates a new ring-3 (user-mode) task from a raw flat machine-code
+// image (no relocation, no ELF — see userland/). `code` is copied into
+// a freshly allocated physical page (identity-mapped, since this
+// kernel does not use paging yet) that becomes the task's instruction
+// stream starting at offset 0; `codeLen` must fit in one page. A
+// second allocated page becomes its user-mode stack. Returns the new
+// task's pid, or -1 if the task table is full or a page couldn't be
+// allocated.
+int scheduler_create_user_task(const uint8_t* code, uint32_t codeLen);
+
+// Called by interrupt_handler when the currently running task must be
+// terminated non-cooperatively — a ring-3 task that faulted (see
+// interrupts.cpp) or a SYS_EXIT syscall — rather than via the
+// cooperative scheduler_exit() a kernel task calls on itself. Marks it
+// Dead and returns the kernel stack pointer to resume on (a different
+// task; a Dead task is never rescheduled, exactly as for
+// scheduler_exit()).
+extern "C" uint32_t scheduler_terminate_current(uint32_t currentEsp);
+
 // Callable only from within the currently running task. Marks it Dead
 // and switches away; a Dead task is never scheduled again, and its pid
 // is never reassigned, so no other code can ever be mistakenly directed
