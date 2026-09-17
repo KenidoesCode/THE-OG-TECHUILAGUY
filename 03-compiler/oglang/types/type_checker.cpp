@@ -33,6 +33,18 @@ public:
             return it->second;
         }
 
+        if (auto* unary = dynamic_cast<const UnaryExpr*>(&expr)) {
+            std::string operandType = checkExpr(*unary->operand);
+
+            if (operandType != "i32") {
+                throw std::runtime_error(
+                    "Unary operator requires an i32 operand"
+                );
+            }
+
+            return "i32";
+        }
+
         if (auto* call = dynamic_cast<const CallExpr*>(&expr)) {
             auto it = signatures.find(call->callee);
 

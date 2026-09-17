@@ -201,6 +201,26 @@ ValueId IRLowerer::lowerExpr(
         return it->second;
     }
 
+    if (auto* unary = dynamic_cast<const UnaryExpr*>(&expr)) {
+        if (unary->op != '-') {
+            throw std::runtime_error("Unsupported unary operator");
+        }
+
+        ValueId operand = lowerExpr(*unary->operand, ir);
+
+        ValueId zero = nextValue++;
+        ir.instructions.push_back({
+            OpCode::ConstI32, zero, -1, -1, 0, {}, ""
+        });
+
+        ValueId dst = nextValue++;
+        ir.instructions.push_back({
+            OpCode::SubI32, dst, zero, operand, 0, {}, ""
+        });
+
+        return dst;
+    }
+
     if (auto* call = dynamic_cast<const CallExpr*>(&expr)) {
         std::vector<ValueId> argValues;
 

@@ -1,0 +1,8 @@
+fn main() -> i32 {
+    let x: i32 = 7;
+
+    // Exercises unary minus applied to a literal, a variable, and a
+    // double negation, kept in [0, 255] so the result survives an
+    // 8-bit process exit code without truncation ambiguity.
+    return -5 + 10 + -(-x) - x;
+}

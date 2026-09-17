@@ -71,8 +71,9 @@ Assembler → Linker → Native ELF → CPU
 programs — including the recursive one above — to a linked x86-64 ELF
 executable that a Linux process loader actually runs. Implemented and
 tested: integer arithmetic with correct operand-clobber handling,
-register-constrained division (`idivl`/`cdq`), comparisons, `if`/`else`
-and `while` control flow, mutable-variable assignment, and function calls
+register-constrained division (`idivl`/`cdq`), unary minus, comparisons,
+`if`/`else` and `while` control flow, mutable-variable assignment, and
+function calls
 with any number of integer arguments (the first 4 in registers per a
 restricted System V AMD64 subset, the rest caller-cleanup stack-passed)
 under a calling convention that keeps a caller's live values correct
@@ -81,18 +82,18 @@ Chaitin-style graph coloring with spilling: a program with more
 simultaneously-live values than the 4 available registers compiles and
 runs correctly, with the excess spilled to an `rbp`-relative stack frame
 instead of failing to compile.
-`03-compiler/oglang/tests/e2e_test.sh` runs twelve programs end-to-end and
-checks their real process exit codes, including cases specifically chosen
-to fail under a naive calling convention, an unconstrained division
-lowering, or superficial/fake spilling — five real bugs were caught this
-way across this compiler's development (not by inspection): a naive
-calling convention corrupting operands, a division codegen typo, and
-three distinct clobber hazards across parameter unpacking and argument
-marshaling, the last of which only appeared once spilling, loops, and a
-6-argument call were combined in one program. Frontend and codegen
-invariants are
-additionally covered by `03-compiler/oglang/tests/unit_test.sh`
-(54 assertions). The type checker also verifies every function returns on
+`03-compiler/oglang/tests/e2e_test.sh` runs thirteen programs end-to-end
+and checks their real process exit codes, including cases specifically
+chosen to fail under a naive calling convention, an unconstrained
+division lowering, or superficial/fake spilling — five real bugs were
+caught this way across this compiler's development (not by inspection):
+a naive calling convention corrupting operands, a division codegen typo,
+and three distinct clobber hazards across parameter unpacking and
+argument marshaling, the last of which only appeared once spilling,
+loops, and a 6-argument call were combined in one program. Frontend and
+codegen invariants are additionally covered by
+`03-compiler/oglang/tests/unit_test.sh` (58 assertions). The type checker
+also verifies every function returns on
 all paths (an `if` without an `else`, or a function ending in a bare
 `while` loop, is rejected — a loop may run zero times).
 Not yet implemented: generics, traits, ownership/borrowing, `for` loops,

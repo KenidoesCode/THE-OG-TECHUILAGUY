@@ -76,4 +76,7 @@ check "more than 4 arguments requires stack-passed parameters, order-sensitive" 
 check "spilled loop-mutated values passed as mixed register/stack call arguments" \
     "tests/programs/spill_and_stack_args.og" 76
 
+check "unary minus on a literal, a variable, and double negation" \
+    "tests/programs/unary_minus.og" 5
+
 exit $FAIL

@@ -426,14 +426,14 @@ std::unique_ptr<Expr> Parser::parseAdditive() {
 std::unique_ptr<Expr> Parser::parseMultiplicative() {
 
     auto left =
-        parsePrimary();
+        parseUnary();
 
     while (true) {
 
         if (match(TokenKind::Star)) {
 
             auto right =
-                parsePrimary();
+                parseUnary();
 
             left = std::make_unique<BinaryExpr>(
                 '*',
@@ -444,7 +444,7 @@ std::unique_ptr<Expr> Parser::parseMultiplicative() {
         else if (match(TokenKind::Slash)) {
 
             auto right =
-                parsePrimary();
+                parseUnary();
 
             left = std::make_unique<BinaryExpr>(
                 '/',
@@ -458,6 +458,20 @@ std::unique_ptr<Expr> Parser::parseMultiplicative() {
     }
 
     return left;
+}
+
+std::unique_ptr<Expr> Parser::parseUnary() {
+
+    if (match(TokenKind::Minus)) {
+        auto operand = parseUnary();
+
+        return std::make_unique<UnaryExpr>(
+            '-',
+            std::move(operand)
+        );
+    }
+
+    return parsePrimary();
 }
 
 std::unique_ptr<Expr> Parser::parsePrimary() {

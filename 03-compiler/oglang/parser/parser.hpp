@@ -36,6 +36,7 @@ private:
     std::unique_ptr<Expr> parseComparison();
     std::unique_ptr<Expr> parseAdditive();
     std::unique_ptr<Expr> parseMultiplicative();
+    std::unique_ptr<Expr> parseUnary();
     std::unique_ptr<Expr> parsePrimary();
 
     std::vector<std::unique_ptr<Statement>> parseBlock();

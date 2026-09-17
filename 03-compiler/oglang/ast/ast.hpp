@@ -37,6 +37,14 @@ struct BinaryExpr : Expr {
           right(std::move(right)) {}
 };
 
+struct UnaryExpr : Expr {
+    char op;
+    std::unique_ptr<Expr> operand;
+
+    UnaryExpr(char op, std::unique_ptr<Expr> operand)
+        : op(op), operand(std::move(operand)) {}
+};
+
 struct CallExpr : Expr {
     std::string callee;
     std::vector<std::unique_ptr<Expr>> args;

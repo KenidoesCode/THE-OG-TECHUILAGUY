@@ -342,6 +342,53 @@ void testTypeCheckerAllowsIfElseWhereBothBranchesReturn() {
     }
 }
 
+void testParserParsesUnaryMinus() {
+    Program program = parseProgram(
+        "fn main() -> i32 { return -5; }"
+    );
+
+    auto* ret = dynamic_cast<ReturnStmt*>(program[0].body[0].get());
+    check(ret != nullptr, "parser: unary-minus program body parses");
+
+    auto* unary = ret != nullptr
+        ? dynamic_cast<UnaryExpr*>(ret->value.get())
+        : nullptr;
+    check(unary != nullptr, "parser: '-5' parses as UnaryExpr");
+    check(unary != nullptr && unary->op == '-',
+          "parser: unary expression records the '-' operator");
+
+    // Double negation should nest, not collapse at parse time.
+    Program nested = parseProgram(
+        "fn main() -> i32 { return -(-7); }"
+    );
+    auto* nestedRet =
+        dynamic_cast<ReturnStmt*>(nested[0].body[0].get());
+    auto* outerUnary = nestedRet != nullptr
+        ? dynamic_cast<UnaryExpr*>(nestedRet->value.get())
+        : nullptr;
+    check(outerUnary != nullptr &&
+          dynamic_cast<UnaryExpr*>(outerUnary->operand.get()) != nullptr,
+          "parser: double negation nests two UnaryExpr nodes");
+}
+
+void testTypeCheckerAcceptsUnaryMinusOnI32() {
+    try {
+        Program program = parseProgram(
+            "fn main() -> i32 { let x: i32 = 3; return -x; }"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true, "type checker: accepts unary minus on an i32 value");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: accepts unary minus on an i32 value"
+                  " (threw: ") + e.what() + ")");
+    }
+}
+
 void testStackArgumentCodegenForMoreThanFourParams() {
     std::string assembly = compileToAssembly(
         "fn sub6(a: i32, b: i32, c: i32, d: i32, e: i32, f: i32) -> i32 { "
@@ -445,6 +492,8 @@ int main() {
     testParserParsesParametersAndCalls();
     testParserParsesIfElse();
     testParserParsesWhileAndAssignment();
+    testParserParsesUnaryMinus();
+    testTypeCheckerAcceptsUnaryMinusOnI32();
     testFullPipelineProducesRegisterAllocation();
     testDivisionCodegenUsesRegisterConstrainedIdiv();
     testCallCodegenMarshalsArguments();
