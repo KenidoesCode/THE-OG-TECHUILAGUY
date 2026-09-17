@@ -102,6 +102,8 @@ std::vector<Token> Lexer::tokenize() {
                 kind = TokenKind::TypeI32;
             else if (text == "ptr")
                 kind = TokenKind::TypePtr;
+            else if (text == "constptr")
+                kind = TokenKind::TypeConstPtr;
             else
                 kind = TokenKind::Identifier;
 

@@ -9,6 +9,7 @@ enum class TokenKind {
 
     TypeI32,
     TypePtr,
+    TypeConstPtr,
 
     Identifier,
     Integer,

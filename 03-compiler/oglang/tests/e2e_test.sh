@@ -85,6 +85,9 @@ check "pointer aliasing: mutating *p is visible reading the variable by name" \
 check "a pointer forced to spill is reloaded as a full 64-bit value, not truncated" \
     "tests/programs/pointer_spill.og" 122
 
+check "constptr: a mutable ptr widens into a constptr parameter/variable and reads correctly through it" \
+    "tests/programs/const_ptr.og" 42
+
 check "arrays: write through one loop, read back through a separate loop" \
     "tests/programs/arrays.og" 100
 

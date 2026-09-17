@@ -55,6 +55,7 @@ Program Parser::parseProgram() {
 std::string Parser::parseType() {
     if (match(TokenKind::TypeI32)) return "i32";
     if (match(TokenKind::TypePtr)) return "ptr";
+    if (match(TokenKind::TypeConstPtr)) return "constptr";
 
     throw std::runtime_error("Expected type");
 }

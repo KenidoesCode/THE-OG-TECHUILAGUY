@@ -20,6 +20,29 @@ public:
     // indexed, so there is no ambiguity in keeping them apart.
     std::unordered_map<std::string, std::pair<std::string, int>> arrays;
 
+    // "constptr" is a read-only view of the same underlying address as
+    // "ptr" — a mutable pointer may always be used where a const one is
+    // expected (widening), but not the reverse. This is a one-way
+    // conversion checked wherever a value flows into a declared/expected
+    // type (let initializers, assignments, call arguments, returns), not
+    // a distinct runtime representation: both compile to the same raw
+    // address, so there is no codegen cost, only a compile-time
+    // restriction on where a StoreStmt is allowed to target one.
+    static bool isPointerType(const std::string& type) {
+        return type == "ptr" || type == "constptr";
+    }
+
+    static bool assignable(
+        const std::string& declaredType,
+        const std::string& actualType
+    ) {
+        if (declaredType == actualType) {
+            return true;
+        }
+
+        return declaredType == "constptr" && actualType == "ptr";
+    }
+
     std::string checkExpr(const Expr& expr) {
         if (dynamic_cast<const IntegerExpr*>(&expr))
             return "i32";
@@ -66,7 +89,7 @@ public:
         if (auto* deref = dynamic_cast<const DerefExpr*>(&expr)) {
             std::string pointerType = checkExpr(*deref->pointer);
 
-            if (pointerType != "ptr") {
+            if (!isPointerType(pointerType)) {
                 throw std::runtime_error(
                     "Cannot dereference a non-pointer value"
                 );
@@ -118,7 +141,7 @@ public:
             for (size_t i = 0; i < call->args.size(); ++i) {
                 std::string argType = checkExpr(*call->args[i]);
 
-                if (argType != sig.paramTypes[i]) {
+                if (!assignable(sig.paramTypes[i], argType)) {
                     throw std::runtime_error(
                         "Argument " + std::to_string(i + 1) +
                         " to '" + call->callee +
@@ -185,7 +208,7 @@ public:
 
             std::string actual = checkExpr(*letStmt->initializer);
 
-            if (actual != letStmt->type) {
+            if (!assignable(letStmt->type, actual)) {
                 throw std::runtime_error(
                     "Type mismatch for variable: " + letStmt->name
                 );
@@ -209,7 +232,7 @@ public:
 
             std::string actual = checkExpr(*assignStmt->value);
 
-            if (actual != it->second) {
+            if (!assignable(it->second, actual)) {
                 throw std::runtime_error(
                     "Type mismatch assigning to variable: " +
                     assignStmt->name
@@ -224,9 +247,15 @@ public:
 
             std::string pointerType = checkExpr(*storeStmt->pointer);
 
-            if (pointerType != "ptr") {
+            if (!isPointerType(pointerType)) {
                 throw std::runtime_error(
                     "Cannot store through a non-pointer value"
+                );
+            }
+
+            if (pointerType == "constptr") {
+                throw std::runtime_error(
+                    "Cannot store through a const pointer"
                 );
             }
 
@@ -313,7 +342,7 @@ public:
 
             std::string actual = checkExpr(*returnStmt->value);
 
-            if (actual != functionReturnType) {
+            if (!assignable(functionReturnType, actual)) {
                 throw std::runtime_error("Return type mismatch");
             }
 

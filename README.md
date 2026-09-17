@@ -120,13 +120,26 @@ single *unsigned* comparison (`index >= size`) before computing the
 address, which traps (`exit(101)`) on both a too-large index and a
 negative one (a negative `i32` reinterpreted as unsigned is huge, so
 one check catches both) instead of silently computing and using an
-out-of-bounds address. See
+out-of-bounds address.
+
+Pointers also come in a second, read-only flavor: `constptr` is a
+compile-time-only, no-runtime-cost distinction from `ptr` — a `ptr`
+value may always widen into a `constptr` (variable, parameter, or
+return type), but not the reverse, and `*p = v` is rejected by the type
+checker wherever `p`'s declared type is `constptr`, before IR lowering
+or codegen ever run (both types lower through the identical
+`AddressOfI32`/`LoadI32`/`StoreI32` path and compile to the same raw
+address). This is deliberately not called "ownership" or "borrowing"
+anywhere: it says nothing about a `ptr` alias to the same storage
+writing through it while a `constptr` view exists elsewhere, and
+nothing about lifetimes. See
 [`docs/ADR/0001-oglang-memory-model.md`](docs/ADR/0001-oglang-memory-model.md)
 for the honest, complete accounting of what OGLang's memory model does
-and does not guarantee — bounds checking is real; ownership, borrowing,
-and use-after-return detection are not.
+and does not guarantee — bounds checking and the const/mut pointer
+distinction are real; ownership, borrowing, and use-after-return
+detection are not.
 
-`03-compiler/oglang/tests/e2e_test.sh` runs nineteen programs
+`03-compiler/oglang/tests/e2e_test.sh` runs twenty programs
 end-to-end and checks their real process exit codes, including cases
 specifically chosen to fail under a naive calling convention, an
 unconstrained division lowering, superficial/fake spilling,
@@ -138,12 +151,12 @@ unpacking and argument marshaling, and
 two separate instances of the same 64-bit-pointer-truncation bug class
 (one in the pointer feature itself, one in array element addressing).
 Frontend and codegen invariants are additionally covered by
-`03-compiler/oglang/tests/unit_test.sh` (75 assertions). The type checker
+`03-compiler/oglang/tests/unit_test.sh` (92 assertions). The type checker
 also verifies every function returns on
 all paths (an `if` without an `else`, or a function ending in a bare
 `while` loop, is rejected — a loop may run zero times).
 Not yet implemented: generics, traits, ownership/borrowing, `for` loops,
-structs, enums, modules, and any type other than `i32`/`ptr`.
+structs, enums, modules, and any type other than `i32`/`ptr`/`constptr`.
 
 ## 🖥️ Techuilaguy OS — second deep system
 
@@ -246,8 +259,9 @@ heap, filesystem, or networking are implemented yet — see
 - [x] Real pointers: `&`/`*` (address-of, load, store) as genuine 64-bit addresses, with address-taken locals forced into stable stack slots
 - [x] Fixed-size arrays: `i32[N]` with contiguous-slot allocation and pointer-arithmetic-based indexing
 - [x] Runtime array bounds checking (out-of-range and negative indices both trap; see [ADR 0001](docs/ADR/0001-oglang-memory-model.md))
-- [ ] `for` loops, structs, enums, modules, types other than `i32`/`ptr`
-- [ ] Ownership, borrowing, generics, traits, safe concurrency
+- [x] `const`/`mut` pointer distinction (`constptr`/`ptr`), compile-time only, no runtime cost — a `ptr` widens into a `constptr`, writes through a `constptr` are rejected by the type checker; not ownership or borrowing (see [ADR 0001](docs/ADR/0001-oglang-memory-model.md))
+- [ ] `for` loops, structs, enums, modules, types other than `i32`/`ptr`/`constptr`
+- [ ] A real borrow-checking pass, generics, traits, safe concurrency
 - [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation
 - [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)
 - [x] Techuilaguy OS — PS/2 keyboard driver (verified against real injected scancodes via QEMU's monitor, not just a unit-tested translation table)

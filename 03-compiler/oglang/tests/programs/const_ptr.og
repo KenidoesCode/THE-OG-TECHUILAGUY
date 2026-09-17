@@ -1,0 +1,23 @@
+// A constptr is a read-only view of the same address a mutable ptr
+// would hold: passing a mutable pointer into a function that only
+// declares a constptr parameter must type-check and read the correct
+// value (widening, checked at compile time, no runtime cost — see
+// docs/ADR/0001-oglang-memory-model.md). This program only exercises
+// the accepted paths; the rejected paths (writing through a constptr,
+// or passing a constptr where a mutable ptr is required) are compiler
+// errors, covered by tests/unit_tests.cpp, not something that can be
+// expressed as a runnable, passing .og program.
+fn read_through_const(p: constptr) -> i32 {
+    return *p;
+}
+
+fn main() -> i32 {
+    let x: i32 = 42;
+    let mutable_ptr: ptr = &x;
+    let value: i32 = read_through_const(mutable_ptr);
+
+    let const_view: constptr = &x;
+    let value2: i32 = *const_view;
+
+    return value + value2 - x;
+}

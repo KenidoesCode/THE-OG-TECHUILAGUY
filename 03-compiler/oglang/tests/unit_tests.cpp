@@ -636,6 +636,117 @@ void testTypeCheckerAllowsPointerRoundTrip() {
     }
 }
 
+void testParserParsesConstPtrType() {
+    Program program = parseProgram(
+        "fn main() -> i32 { "
+        "  let x: i32 = 1; "
+        "  let p: constptr = &x; "
+        "  return *p; "
+        "}"
+    );
+
+    auto* letP = dynamic_cast<LetStmt*>(program[0].body[1].get());
+    check(letP != nullptr && letP->type == "constptr",
+          "parser: 'constptr' is accepted as a variable type");
+}
+
+void testTypeCheckerAllowsMutablePointerAssignedToConstPtr() {
+    try {
+        Program program = parseProgram(
+            "fn main() -> i32 { "
+            "  let x: i32 = 1; "
+            "  let p: constptr = &x; "
+            "  return *p; "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true,
+              "type checker: a mutable pointer (&x) may be stored in a "
+              "constptr variable (widening)");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: a mutable pointer (&x) may be stored in a "
+                  "constptr variable (widening) (threw: ") + e.what() + ")");
+    }
+}
+
+void testTypeCheckerRejectsStoreThroughConstPointer() {
+    expectProgramThrows(
+        "type checker: rejects '*p = v;' when p is a constptr",
+        "fn main() -> i32 { "
+        "  let x: i32 = 1; "
+        "  let p: constptr = &x; "
+        "  *p = 2; "
+        "  return x; "
+        "}"
+    );
+}
+
+void testTypeCheckerAllowsReadThroughConstPointer() {
+    try {
+        Program program = parseProgram(
+            "fn main() -> i32 { "
+            "  let x: i32 = 41; "
+            "  let p: constptr = &x; "
+            "  return *p + 1; "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true, "type checker: reading through a constptr is allowed");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: reading through a constptr is allowed"
+                  " (threw: ") + e.what() + ")");
+    }
+}
+
+void testTypeCheckerRejectsConstPointerPassedAsMutableParam() {
+    expectProgramThrows(
+        "type checker: rejects passing a constptr where a mutable ptr "
+        "parameter is expected",
+        "fn write_one(p: ptr) -> i32 { *p = 1; return 0; } "
+        "fn main() -> i32 { "
+        "  let x: i32 = 0; "
+        "  let cp: constptr = &x; "
+        "  return write_one(cp); "
+        "}"
+    );
+}
+
+void testTypeCheckerAllowsMutablePointerPassedAsConstParam() {
+    try {
+        Program program = parseProgram(
+            "fn read_one(p: constptr) -> i32 { return *p; } "
+            "fn main() -> i32 { "
+            "  let x: i32 = 7; "
+            "  let p: ptr = &x; "
+            "  return read_one(p); "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true,
+              "type checker: a mutable pointer may be passed where a "
+              "constptr parameter is expected (widening)");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: a mutable pointer may be passed where a "
+                  "constptr parameter is expected (widening) (threw: ") +
+                  e.what() + ")");
+    }
+}
+
 void testTypeCheckerRejectsUnknownVariable() {
     expectProgramThrows(
         "type checker: rejects reference to undefined variable",
@@ -746,6 +857,12 @@ int main() {
     testTypeCheckerRejectsAddressOfUndeclaredVariable();
     testTypeCheckerRejectsStoreThroughNonPointer();
     testTypeCheckerAllowsPointerRoundTrip();
+    testParserParsesConstPtrType();
+    testTypeCheckerAllowsMutablePointerAssignedToConstPtr();
+    testTypeCheckerRejectsStoreThroughConstPointer();
+    testTypeCheckerAllowsReadThroughConstPointer();
+    testTypeCheckerRejectsConstPointerPassedAsMutableParam();
+    testTypeCheckerAllowsMutablePointerPassedAsConstParam();
     testTypeCheckerRejectsUnknownVariable();
     testTypeCheckerRejectsReturnTypeMismatch();
     testTypeCheckerRejectsUndefinedFunctionCall();
