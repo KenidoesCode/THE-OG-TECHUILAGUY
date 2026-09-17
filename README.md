@@ -115,18 +115,30 @@ Fixed with a dedicated `PtrSubI32` opcode that does the subtraction in
 a 64-bit register, caught by the first real array test, not by
 inspection.
 
-`03-compiler/oglang/tests/e2e_test.sh` runs seventeen programs
+Array indexing is also bounds-checked at run time: `arr[i]` compiles a
+single *unsigned* comparison (`index >= size`) before computing the
+address, which traps (`exit(101)`) on both a too-large index and a
+negative one (a negative `i32` reinterpreted as unsigned is huge, so
+one check catches both) instead of silently computing and using an
+out-of-bounds address. See
+[`docs/ADR/0001-oglang-memory-model.md`](docs/ADR/0001-oglang-memory-model.md)
+for the honest, complete accounting of what OGLang's memory model does
+and does not guarantee — bounds checking is real; ownership, borrowing,
+and use-after-return detection are not.
+
+`03-compiler/oglang/tests/e2e_test.sh` runs nineteen programs
 end-to-end and checks their real process exit codes, including cases
 specifically chosen to fail under a naive calling convention, an
-unconstrained division lowering, superficial/fake spilling, or
-32-bit-truncated pointers — seven real bugs were caught this way across
-this compiler's development (not by inspection): a naive calling
-convention corrupting operands, a division codegen typo, three distinct
-clobber hazards across parameter unpacking and argument marshaling, and
+unconstrained division lowering, superficial/fake spilling,
+32-bit-truncated pointers, or missing bounds checks — seven real bugs
+were caught this way across this compiler's development (not by
+inspection): a naive calling convention corrupting operands, a
+division codegen typo, three distinct clobber hazards across parameter
+unpacking and argument marshaling, and
 two separate instances of the same 64-bit-pointer-truncation bug class
 (one in the pointer feature itself, one in array element addressing).
 Frontend and codegen invariants are additionally covered by
-`03-compiler/oglang/tests/unit_test.sh` (72 assertions). The type checker
+`03-compiler/oglang/tests/unit_test.sh` (75 assertions). The type checker
 also verifies every function returns on
 all paths (an `if` without an `else`, or a function ending in a bare
 `while` loop, is rejected — a loop may run zero times).
@@ -223,6 +235,7 @@ are implemented yet — see `22-os/README.md`.
 - [x] `while` loops, mutable-variable assignment, real register-allocator spilling (Chaitin-style graph coloring, `rbp`-relative stack slots), all-paths-return checking
 - [x] Real pointers: `&`/`*` (address-of, load, store) as genuine 64-bit addresses, with address-taken locals forced into stable stack slots
 - [x] Fixed-size arrays: `i32[N]` with contiguous-slot allocation and pointer-arithmetic-based indexing
+- [x] Runtime array bounds checking (out-of-range and negative indices both trap; see [ADR 0001](docs/ADR/0001-oglang-memory-model.md))
 - [ ] `for` loops, structs, enums, modules, types other than `i32`/`ptr`
 - [ ] Ownership, borrowing, generics, traits, safe concurrency
 - [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation

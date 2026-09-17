@@ -91,4 +91,10 @@ check "arrays: write through one loop, read back through a separate loop" \
 check "arrays combined with register pressure and function calls" \
     "tests/programs/arrays_with_calls.og" 22
 
+check "out-of-range array index traps (exit 101) instead of reading past the array" \
+    "tests/programs/array_out_of_bounds.og" 101
+
+check "negative array index traps (exit 101) via the same unsigned bounds check" \
+    "tests/programs/array_negative_index.og" 101
+
 exit $FAIL

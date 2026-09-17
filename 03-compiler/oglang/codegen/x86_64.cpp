@@ -618,6 +618,32 @@ std::string X86Codegen::generate(
                 break;
             }
 
+            case OpCode::BoundsCheckI32: {
+                // Unsigned comparison: index >= size catches both a
+                // too-large index and a negative one (which, read as
+                // unsigned, is huge) with a single check. `i` (this
+                // instruction's own position) makes a unique label
+                // without needing a separate counter threaded through
+                // codegen.
+                std::string indexLoc = loadRead(inst.left, "ebx");
+                std::string okLabel = ".Lboundsok" + std::to_string(i);
+
+                out << "    cmpl $" << inst.value << ", " << indexLoc << "\n";
+                out << "    jb " << okLabel << "\n";
+
+                // Out of bounds: exit(101) rather than silently
+                // computing and using an out-of-range address. 101 is
+                // a distinct, documented status specifically for this
+                // trap (60 = SYS_exit, edi = status code — the same
+                // raw syscall convention generateEntryPoint uses).
+                out << "    movl $60, %eax\n";
+                out << "    movl $101, %edi\n";
+                out << "    syscall\n";
+
+                out << okLabel << ":\n";
+                break;
+            }
+
             case OpCode::Label:
                 out << inst.label << ":\n";
                 break;

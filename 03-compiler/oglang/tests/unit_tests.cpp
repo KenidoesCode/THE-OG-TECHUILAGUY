@@ -521,6 +521,29 @@ void testArrayCodegenUsesPointerSafeSubtraction() {
           "codegen: array element address subtraction is 64-bit (subq)");
 }
 
+void testArrayCodegenEmitsBoundsCheck() {
+    std::string assembly = compileToAssembly(
+        "fn main() -> i32 { "
+        "  let arr: i32[3]; "
+        "  return arr[0]; "
+        "}"
+    );
+
+    // The bounds check is a single unsigned comparison (cmpl + jb)
+    // against the array's element count, deliberately using the
+    // unsigned-below condition so a negative index (huge when read as
+    // unsigned) and a too-large one both fail the same check.
+    check(assembly.find("cmpl $3,") != std::string::npos,
+          "codegen: bounds check compares the index against the "
+          "array's declared size (3)");
+    check(assembly.find("jb .Lboundsok") != std::string::npos,
+          "codegen: bounds check uses an unsigned 'jb', catching a "
+          "negative index and an out-of-range one with one comparison");
+    check(assembly.find("movl $101, %edi") != std::string::npos,
+          "codegen: an out-of-bounds access traps with a distinct exit "
+          "status (101) rather than silently continuing");
+}
+
 void testTypeCheckerRejectsIndexingUnknownArray() {
     expectProgramThrows(
         "type checker: rejects indexing an undeclared array",
@@ -714,6 +737,7 @@ int main() {
     testPointerCodegenUsesFullWidthAddressing();
     testParserParsesArrayDeclAndIndexing();
     testArrayCodegenUsesPointerSafeSubtraction();
+    testArrayCodegenEmitsBoundsCheck();
     testTypeCheckerRejectsIndexingUnknownArray();
     testTypeCheckerRejectsNonIntegerArraySize();
     testTypeCheckerRejectsArrayIndexTypeMismatch();

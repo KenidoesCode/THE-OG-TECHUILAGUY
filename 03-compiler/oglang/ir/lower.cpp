@@ -51,7 +51,12 @@ ValueId IRLowerer::lowerElementAddress(
     }
 
     ValueId elementZero = it->second[0];
+    int arraySize = static_cast<int>(it->second.size());
     ValueId index = lowerExpr(indexExpr, ir);
+
+    ir.instructions.push_back({
+        OpCode::BoundsCheckI32, -1, index, -1, arraySize, {}, ""
+    });
 
     ValueId eight = nextValue++;
     ir.instructions.push_back({

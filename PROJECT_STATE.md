@@ -35,13 +35,14 @@ a Linux process loader actually runs.
 | Mutable assignment, unary minus, `//` comments | TESTED | `tests/unit_test.sh` |
 | **Pointers**: `&`, `*` read/write, address-taken locals forced to stack | TESTED | `tests/programs/pointer_aliasing.og`, `pointer_spill.og` |
 | **Fixed-size arrays**: `i32[N]`, contiguous-slot allocation, pointer-arithmetic indexing | TESTED | `tests/programs/arrays.og`, `arrays_with_calls.og` |
+| **Runtime array bounds checking**: out-of-range/negative index traps (exit 101) | TESTED | `tests/programs/array_out_of_bounds.og`, `array_negative_index.og` |
 | Memory-safety model | DESIGNED | [`docs/ADR/0001-oglang-memory-model.md`](docs/ADR/0001-oglang-memory-model.md) — explicitly documents the current model as raw/unsafe (C-like), records which mechanisms are tested (pointer aliasing, spilled-pointer correctness, array read/write) versus which safety properties are *not* enforced (no bounds checking, no use-after-return detection, no borrow checking), and records candidate next steps. Bounds checking, a const/mut pointer distinction, and full borrow-checking are PLANNED, not started. |
 | Structs, enums, modules | PLANNED | not started |
 | Atomics, volatile, MMIO, inline-asm boundary | PLANNED | not started |
 | Types other than `i32`/`ptr` | PLANNED | not started |
 | Freestanding/kernel-target compilation | PLANNED | OGLang only targets a hosted Linux ELF process today; the OS kernel itself is still C++/asm |
 
-**Test suite:** 72 unit assertions, 17 end-to-end programs, all passing
+**Test suite:** 75 unit assertions, 19 end-to-end programs, all passing
 from a clean build (`03-compiler/oglang/tests/unit_test.sh` and
 `e2e_test.sh`). 7 real bugs were caught by these tests during
 development (a calling-convention operand-clobber bug, a division

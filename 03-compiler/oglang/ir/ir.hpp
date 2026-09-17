@@ -59,6 +59,15 @@ enum class OpCode {
     // AddressOfI32/LoadI32/StoreI32 already had to avoid.
     PtrSubI32,
 
+    // No destination. Checks `left` (an index) against `value` (an
+    // array's element count) as an *unsigned* comparison — which
+    // catches a negative index and an out-of-range one with the same
+    // single check, since a negative int reinterpreted as unsigned is
+    // huge. Traps (process exit, distinct status code) rather than
+    // continuing if the check fails, instead of silently computing an
+    // out-of-bounds address the way plain pointer arithmetic would.
+    BoundsCheckI32,
+
     // No destination. `label` names the target of Jump/JumpIfZero,
     // or marks this position for one of them.
     Label,

@@ -1,0 +1,11 @@
+// Negative test: a negative index must also trap (process exit 101).
+// The bounds check is a single *unsigned* comparison specifically so
+// this case and the past-the-end case share one check: a negative
+// int, reinterpreted as unsigned, is huge and fails the same
+// `index >= size` test a too-large index does.
+fn main() -> i32 {
+    let arr: i32[3];
+    let i: i32 = -1;
+
+    return arr[i];
+}

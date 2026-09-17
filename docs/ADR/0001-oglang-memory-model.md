@@ -36,10 +36,10 @@ the intended end state — see "Future direction."
   the *address stays valid for the variable's stack lifetime*; it says
   nothing about what happens if that pointer is read after the
   variable's containing function has returned (see "Known gaps").
-- Array indexing (`arr[i]`) performs **no bounds checking**. An
-  out-of-range index computes a real, "valid-looking" address (still
-  within the function's own stack frame, or beyond it into adjacent
-  memory) and reads/writes through it without any check.
+- Array indexing (`arr[i]`) **is bounds-checked at run time** (added
+  after this ADR was first written — see "Amendment" below): an
+  out-of-range or negative index traps (process exit 101) instead of
+  computing and using an out-of-bounds address.
 - Dereferencing (`*p`) performs **no null check** and **no validity
   check** of any kind. `p` is trusted unconditionally.
 - There is no distinction between a mutable and an immutable pointer;
@@ -75,8 +75,6 @@ of the mechanism, not safety of arbitrary programs:
 
 ### Known gaps (explicitly not claimed as solved)
 
-- **No bounds checking.** `arr[i]` for `i` outside `[0, N)` is
-  undefined behavior at the OGLang level today, exactly like C.
 - **No use-after-return detection.** A function can take `&local` and
   return that pointer (or store it somewhere a caller reads later);
   nothing rejects this at compile time or run time.
@@ -93,19 +91,39 @@ of the mechanism, not safety of arbitrary programs:
 The PRD's stated alternative to a full ownership/borrowing system is
 "an explicitly designed alternative" — this ADR is that explicit
 design record for the *current* state, and the following are candidate
-next steps, in roughly increasing order of effort, none of which have
-design work started beyond this list:
+next steps, in roughly increasing order of effort:
 
-1. Bounds-checked array indexing (a runtime check + a defined trap
-   behavior on out-of-range access) — the smallest increment, and the
-   most direct improvement over C-equivalent behavior.
+1. ~~Bounds-checked array indexing~~ — **done** (see "Amendment"
+   below): a single unsigned comparison (`index >= size`, which also
+   catches a negative index) traps with a distinct exit status (101)
+   instead of computing an out-of-bounds address.
 2. A `const`/`mut` distinction on pointer types, checked at compile
    time (read-only pointers cannot be used as a `StoreStmt` target).
+   Not started.
 3. A real borrow-checking pass (lifetimes tied to lexical scope,
    at-most-one-mutable-or-many-immutable-borrows enforcement) — a
    substantial, multi-part effort comparable in scope to the register
-   allocator itself, not attempted until 1 and 2 are in place and
-   proven with their own tests.
+   allocator itself, not attempted until 2 is in place and proven with
+   its own tests. Not started.
+
+## Amendment (bounds checking)
+
+Array indexing gained a real runtime bounds check shortly after this
+ADR was first written. `arr[i]` now lowers to a `BoundsCheckI32`
+instruction before the address computation: `cmpl $size, index; jb
+.Lok` — an *unsigned* comparison, so `index >= size` fails the check
+whether `index` is too large or negative (a negative `i32` reinterpreted
+as unsigned is a huge value, well past `size`). Failure traps via a
+direct `exit(101)` syscall rather than computing and dereferencing an
+out-of-bounds address. This does not change any of "what is true
+today" above except the one line it corrects, and does not touch
+ownership, borrowing, aliasing, or use-after-return — those remain
+exactly as originally documented.
+
+Verified with both a too-large index and a negative index
+(`03-compiler/oglang/tests/programs/array_out_of_bounds.og`,
+`array_negative_index.og`), each asserted to produce exit code 101, not
+a segfault or a silently-wrong value.
 
 ## Consequences
 
