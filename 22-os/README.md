@@ -3,10 +3,12 @@
 A from-first-principles operating-system prototype inside THE OG TECHUILAGUY.
 
 **Status: PROTOTYPE.** Boots under QEMU and passes automated tests that
-assert on real serial console output, real ring-3 privilege enforcement,
-and real injected PS/2 input — not just that the kernel prints a banner.
-Not a production OS: no paging/virtual memory, no storage or network
-drivers, no filesystem, no networking.
+assert on real serial console output, real paging-enforced memory
+isolation, real ring-3 privilege enforcement, and real injected PS/2
+input — not just that the kernel prints a banner. Not a production OS:
+one shared identity-mapped address space (no per-process address
+spaces yet), no storage or network drivers, no filesystem, no
+networking.
 
 ## Implemented and tested
 
@@ -70,12 +72,34 @@ drivers, no filesystem, no networking.
   fault never ran, that it printed `[FAULT] ... killed by exception 13`
   rather than halting the kernel, and that the rest of the system
   (timer ticks, the other scheduler tasks) kept running afterward.
+- **real paging-based memory isolation**: `paging/` builds a 32-bit
+  (non-PAE) identity-mapped page directory/table set (16 MiB, matching
+  the physical allocator's range) and enables paging (`CR0.PG`).
+  Every page starts supervisor-only; `scheduler_create_user_task`
+  grants user access to exactly the two pages (code, stack) it
+  allocates for that task via `paging_set_user_accessible`, and
+  revokes it (`paging_set_supervisor_only`) before a freed page returns
+  to the general allocator, so a stale user-accessible mapping can
+  never persist onto whatever the page is reused for next. This is
+  distinct from — and a stronger guarantee than — the instruction-level
+  privilege isolation above: without it, a flat 0..4 GiB segment limit
+  gave ring-3 code full read/write access to *all* physical memory,
+  including the kernel's own code and data, as long as it avoided
+  privileged instructions. `tests/boot_test.sh` verifies this against
+  real boot behavior: a third ring-3 program (`userland/kernel_peek.S`)
+  directly reads the kernel's own load address (1 MiB), which it was
+  never granted access to, and the test confirms that read faults with
+  #PF (14), the program is killed exactly like the privileged-
+  instruction case, and the kernel and every other task keep running.
 
 ## Not yet implemented
 
-- paging / virtual memory (all physical pages are identity-mapped;
-  user code has no memory protection from other user code, only from
-  directly executing privileged instructions or ports)
+- per-process address spaces (paging is currently one identity-mapped
+  page directory shared by everything; every task sees the same
+  address layout, just with different per-page permissions — not
+  separate virtual address spaces)
+- a kernel heap (`malloc`-style allocation on top of the physical page
+  allocator)
 - more than one userland program's worth of syscalls (no exec, no
   fork, no IPC)
 - shifted/uppercase keyboard input, modifier keys, non-US layouts
@@ -86,7 +110,7 @@ drivers, no filesystem, no networking.
   static, fixed-size, and fixed in number — see `MAX_TASKS` in
   `scheduler/scheduler.cpp`)
 - stack overflow detection for task stacks
-- more than 6 tasks at a time
+- more than 8 tasks at a time
 
 ## Building and testing
 

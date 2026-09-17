@@ -3,12 +3,13 @@
 #include "../interrupts/interrupts.hpp"
 #include "../gdt/gdt.hpp"
 #include "../memory/memory.hpp"
+#include "../paging/paging.hpp"
 
 #include <stdint.h>
 
 namespace {
 
-constexpr int MAX_TASKS = 6;
+constexpr int MAX_TASKS = 8;
 constexpr uint32_t STACK_WORDS = 1024;  // 4 KiB per task stack.
 constexpr uint32_t PAGE_SIZE = 4096;
 
@@ -226,13 +227,25 @@ int scheduler_create_user_task(const uint8_t* code, uint32_t codeLen) {
     }
 
     // If a previous occupant of this slot leaked pages, free them now
-    // rather than losing the reference.
+    // rather than losing the reference. Revoke user access first: once
+    // a page returns to the general allocator it may be reused for
+    // anything, kernel-owned included, and a stale user-accessible
+    // mapping must never survive that.
     if (tasks[slot].userCodePage != 0) {
+        paging_set_supervisor_only(tasks[slot].userCodePage);
         memory_free_page(tasks[slot].userCodePage);
     }
     if (tasks[slot].userStackPage != 0) {
+        paging_set_supervisor_only(tasks[slot].userStackPage);
         memory_free_page(tasks[slot].userStackPage);
     }
+
+    // Grant user access to exactly these two pages — nothing else.
+    // Every other page in the system (kernel code/data/bss, every
+    // other task's pages) stays supervisor-only, so this task's code
+    // faults with #PF the instant it touches anything else.
+    paging_set_user_accessible(codePage);
+    paging_set_user_accessible(stackPage);
 
     uint32_t pid = nextPid++;
 

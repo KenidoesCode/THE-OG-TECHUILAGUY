@@ -160,8 +160,19 @@ syscall number without crashing, while a second one
 directly from CPL 3 and is verified to fault (#GP) and be terminated in
 isolation — the kernel and every other task keep running, and the
 faulting program's own code after that point is verified to never
-execute. No paging, no filesystem, and no networking are implemented
-yet — see `22-os/README.md`.
+execute.
+
+**Real paging-based memory isolation**: a 32-bit identity-mapped page
+directory/table set is built and `CR0.PG` enabled; every page starts
+supervisor-only, and a user task is granted access to only the exact
+two pages (code, stack) allocated for it. This is a stronger guarantee
+than the instruction-level isolation above — without it, a flat
+0..4 GiB segment limit gave ring-3 code full read/write access to *all*
+physical memory, including the kernel's own. A third program
+(`22-os/userland/kernel_peek.S`) directly reads the kernel's own load
+address from ring 3 and is verified to fault with #PF and be terminated
+the same way. No per-process address spaces, filesystem, or networking
+are implemented yet — see `22-os/README.md`.
 
 ## 🧩 Domains
 
@@ -195,8 +206,12 @@ yet — see `22-os/README.md`.
 - [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)
 - [x] Techuilaguy OS — PS/2 keyboard driver (verified against real injected scancodes via QEMU's monitor, not just a unit-tested translation table)
 - [x] Techuilaguy OS — GDT + TSS + ring-3 userspace + syscall entry (verified against a real ring-3 program and a real privilege-violation fault, both against actual boot behavior)
-- [ ] Techuilaguy OS — paging/virtual memory, storage/network drivers, filesystem
+- [x] Techuilaguy OS — real paging + per-page memory isolation (verified against a real ring-3 program reading unmapped kernel memory and faulting)
+- [ ] Techuilaguy OS — per-process address spaces, kernel heap, storage/network drivers, filesystem
 - [ ] Techuilaguy L1, Storage, Cloud, AI, Quantum, Space Systems
+
+See [`PROJECT_STATE.md`](./PROJECT_STATE.md) for the full, honestly-labeled
+per-layer status of every PRD requirement, not just this summary.
 
 ## 🔐 Principles
 

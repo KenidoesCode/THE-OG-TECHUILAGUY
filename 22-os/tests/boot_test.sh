@@ -52,6 +52,7 @@ check "TECHUILAGUY OS KERNEL"        "kernel banner printed over serial"
 check "\[BOOT\] kernel entered"      "kernel entry reached"
 check "\[MEM \] physical frame allocator online" "physical frame allocator initialized"
 check "\[GDT \] GDT + TSS installed" "GDT and TSS installed, segments reloaded onto our own descriptors"
+check "\[PAGE\] paging enabled" "paging enabled (CR0.PG set) without a triple fault"
 check "\[INT \] real IDT installed"  "IDT installed"
 check "\[SCHED\] scheduler initialized" "scheduler initialized"
 check "\[SYS \] syscall dispatch online" "syscall dispatch (int \$0x80) online"
@@ -85,6 +86,25 @@ if grep -q "^X\$" "$LOG"; then
     FAIL=1
 else
     echo "[PASS] boot: code after the privileged instruction never ran — the faulting task was genuinely terminated, not merely warned about"
+fi
+
+# --- Paging-based memory isolation (distinct from instruction-level
+# privilege isolation above): every physical page starts supervisor-
+# only, and only the specific code/stack pages granted to a user task
+# are marked user-accessible. "kernel_peek" directly reads the
+# kernel's own load address (1 MiB, never granted to it) from ring 3,
+# which must fault with #PF (14) rather than succeed.
+check "^K" \
+    "the third ring-3 task reached the kernel via SYS_WRITE before attempting to read kernel memory"
+
+check "\[FAULT\] ring-3 task killed by exception 14" \
+    "reading unmapped-to-it kernel memory from CPL 3 faults with #PF and the offending task is killed, not the kernel"
+
+if grep -q "^L\$" "$LOG"; then
+    echo "[FAIL] boot: ring-3 code after the kernel-memory read ran — paging isolation did not actually block it"
+    FAIL=1
+else
+    echo "[PASS] boot: code after the kernel-memory read never ran — paging isolation is real, not merely instruction-level"
 fi
 
 check "task A exited after 5 run(s)" \
