@@ -13,6 +13,11 @@ OGLang is a high-level systems programming language designed for:
 - portability
 - long-term cryptographic agility
 
+These are design targets, not a description of the current
+implementation. For the actual, honestly-labeled state of the memory
+model specifically (raw/unsafe pointers today, no ownership/borrowing),
+see [`../../docs/ADR/0001-oglang-memory-model.md`](../../docs/ADR/0001-oglang-memory-model.md).
+
 ## Primitive Types
 
 bool

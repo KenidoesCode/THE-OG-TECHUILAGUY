@@ -35,7 +35,7 @@ a Linux process loader actually runs.
 | Mutable assignment, unary minus, `//` comments | TESTED | `tests/unit_test.sh` |
 | **Pointers**: `&`, `*` read/write, address-taken locals forced to stack | TESTED | `tests/programs/pointer_aliasing.og`, `pointer_spill.og` |
 | **Fixed-size arrays**: `i32[N]`, contiguous-slot allocation, pointer-arithmetic indexing | TESTED | `tests/programs/arrays.og`, `arrays_with_calls.og` |
-| Memory-safety model | PLANNED | no ADR yet; only raw pointers, no ownership/borrowing |
+| Memory-safety model | DESIGNED | [`docs/ADR/0001-oglang-memory-model.md`](docs/ADR/0001-oglang-memory-model.md) — explicitly documents the current model as raw/unsafe (C-like), records which mechanisms are tested (pointer aliasing, spilled-pointer correctness, array read/write) versus which safety properties are *not* enforced (no bounds checking, no use-after-return detection, no borrow checking), and records candidate next steps. Bounds checking, a const/mut pointer distinction, and full borrow-checking are PLANNED, not started. |
 | Structs, enums, modules | PLANNED | not started |
 | Atomics, volatile, MMIO, inline-asm boundary | PLANNED | not started |
 | Types other than `i32`/`ptr` | PLANNED | not started |

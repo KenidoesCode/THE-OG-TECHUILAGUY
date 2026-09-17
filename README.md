@@ -44,7 +44,12 @@ Consumer of abstractions → Builder → Designer → Researcher → Ecosystem
 ## ⚙️ OGLang — the first deep system
 
 A systems language, built alongside its own compiler. Memory safety and PQC
-integration are design targets, not yet implemented — see `spec/OG_LANG_SPEC_V0.1.md`.
+integration are design targets, not yet implemented — see `spec/OG_LANG_SPEC_V0.1.md`
+and, for the honest current state of the memory model specifically,
+[`docs/ADR/0001-oglang-memory-model.md`](docs/ADR/0001-oglang-memory-model.md)
+(raw, C-like pointers today: real and tested as a *mechanism*, with no
+bounds checking, use-after-return detection, or borrow checking — not
+"memory safety" in the sense the PRD ultimately targets).
 
 ```rust
 fn fact(n: i32) -> i32 {
