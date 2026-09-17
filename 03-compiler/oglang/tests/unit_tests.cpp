@@ -17,6 +17,8 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace {
 
@@ -65,12 +67,22 @@ std::string compileToAssembly(const std::string& source) {
     TypeChecker checker;
     checker.check(program);
 
+    std::unordered_map<std::string, std::vector<std::string>>
+        structLayouts;
+    for (const StructDecl& structDecl : program.structs) {
+        std::vector<std::string> fieldNames;
+        for (const Param& field : structDecl.fields) {
+            fieldNames.push_back(field.name);
+        }
+        structLayouts[structDecl.name] = std::move(fieldNames);
+    }
+
     X86Codegen codegen;
     std::string assembly = codegen.generateEntryPoint("main");
 
     for (const Function& function : program) {
         IRLowerer lowerer;
-        IRFunction ir = lowerer.lower(function);
+        IRFunction ir = lowerer.lower(function, structLayouts);
 
         LivenessAnalyzer liveness;
         auto ranges = liveness.analyze(ir);
@@ -592,6 +604,149 @@ void testTypeCheckerAllowsArrayRoundTrip() {
     }
 }
 
+void testParserParsesStructDeclAndFieldAccess() {
+    Program program = parseProgram(
+        "struct Point { x: i32, y: i32 } "
+        "fn main() -> i32 { "
+        "  let p: Point; "
+        "  p.x = 5; "
+        "  let x: i32 = p.x; "
+        "  return x; "
+        "}"
+    );
+
+    check(program.structs.size() == 1,
+          "parser: 'struct Point { ... }' is parsed as a top-level struct declaration");
+    check(program.structs[0].name == "Point",
+          "parser: struct declaration records its name");
+    check(program.structs[0].fields.size() == 2 &&
+          program.structs[0].fields[0].name == "x" &&
+          program.structs[0].fields[0].type == "i32" &&
+          program.structs[0].fields[1].name == "y" &&
+          program.structs[0].fields[1].type == "i32",
+          "parser: struct declaration records its fields in order, with types");
+
+    auto* decl = dynamic_cast<StructVarDeclStmt*>(program[0].body[0].get());
+    check(decl != nullptr, "parser: 'let p: Point;' parses as StructVarDeclStmt");
+    check(decl != nullptr && decl->structType == "Point",
+          "parser: struct variable declaration records its struct type");
+
+    auto* fieldStore =
+        dynamic_cast<FieldStoreStmt*>(program[0].body[1].get());
+    check(fieldStore != nullptr,
+          "parser: 'p.x = 5;' parses as FieldStoreStmt");
+    check(fieldStore != nullptr && fieldStore->fieldName == "x",
+          "parser: field store records the field name");
+
+    auto* letX = dynamic_cast<LetStmt*>(program[0].body[2].get());
+    auto* fieldAccess = letX != nullptr
+        ? dynamic_cast<FieldAccessExpr*>(letX->initializer.get())
+        : nullptr;
+    check(fieldAccess != nullptr, "parser: 'p.x' parses as FieldAccessExpr");
+}
+
+void testStructCodegenUsesPointerSafeSubtractionWithNoBoundsCheck() {
+    std::string assembly = compileToAssembly(
+        "struct Point { x: i32, y: i32 } "
+        "fn main() -> i32 { "
+        "  let p: Point; "
+        "  p.x = 1; "
+        "  return p.x; "
+        "}"
+    );
+
+    // Field addressing computes (field-0's real 64-bit address) minus
+    // (fieldIndex * 8), reusing the identical pointer-safe subtraction
+    // codegen arrays use for element addressing.
+    check(assembly.find("subq") != std::string::npos,
+          "codegen: struct field address subtraction is 64-bit (subq)");
+
+    // Unlike array indexing, a field name is resolved at compile time
+    // by the type checker, so there is no runtime bounds check to emit
+    // for it — this is the concrete difference from array codegen.
+    check(assembly.find("jb .Lboundsok") == std::string::npos,
+          "codegen: struct field access emits no runtime bounds check "
+          "(the field is validated at compile time, not at run time)");
+}
+
+void testTypeCheckerRejectsUndeclaredStructType() {
+    expectProgramThrows(
+        "type checker: rejects a variable declared with an undeclared struct type",
+        "fn main() -> i32 { let p: NoSuchStruct; return 0; }"
+    );
+}
+
+void testTypeCheckerRejectsAccessingUnknownField() {
+    expectProgramThrows(
+        "type checker: rejects accessing a field that doesn't exist on the struct",
+        "struct Point { x: i32, y: i32 } "
+        "fn main() -> i32 { let p: Point; return p.z; }"
+    );
+}
+
+void testTypeCheckerRejectsFieldStoreOnUnknownStructVariable() {
+    expectProgramThrows(
+        "type checker: rejects storing into a field of an undeclared struct variable",
+        "struct Point { x: i32, y: i32 } "
+        "fn main() -> i32 { p.x = 1; return 0; }"
+    );
+}
+
+void testTypeCheckerRejectsFieldTypeMismatch() {
+    expectProgramThrows(
+        "type checker: rejects storing a non-i32 value into an i32 field",
+        "struct Point { x: i32, y: i32 } "
+        "fn f(p: ptr) -> i32 { "
+        "  let pt: Point; "
+        "  pt.x = p; "
+        "  return 0; "
+        "}"
+        "fn main() -> i32 { return 0; }"
+    );
+}
+
+void testTypeCheckerRejectsDuplicateStructFieldNames() {
+    expectProgramThrows(
+        "type checker: rejects a struct with two fields sharing a name",
+        "struct Bad { x: i32, x: i32 } "
+        "fn main() -> i32 { return 0; }"
+    );
+}
+
+void testTypeCheckerRejectsStructTypedFunctionParameter() {
+    expectProgramThrows(
+        "type checker: rejects a struct type used as a function parameter "
+        "(no calling-convention support for aggregates yet)",
+        "struct Point { x: i32, y: i32 } "
+        "fn f(p: Point) -> i32 { return 0; } "
+        "fn main() -> i32 { return 0; }"
+    );
+}
+
+void testTypeCheckerAllowsStructFieldRoundTrip() {
+    try {
+        Program program = parseProgram(
+            "struct Point { x: i32, y: i32 } "
+            "fn main() -> i32 { "
+            "  let p: Point; "
+            "  p.x = 40; "
+            "  p.y = 2; "
+            "  return p.x + p.y; "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true, "type checker: accepts a well-typed struct field round trip");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: accepts a well-typed struct field round trip"
+                  " (threw: ") + e.what() + ")");
+    }
+}
+
 void testTypeCheckerRejectsDereferenceOfNonPointer() {
     expectProgramThrows(
         "type checker: rejects dereferencing a plain i32 value",
@@ -853,6 +1008,15 @@ int main() {
     testTypeCheckerRejectsNonIntegerArraySize();
     testTypeCheckerRejectsArrayIndexTypeMismatch();
     testTypeCheckerAllowsArrayRoundTrip();
+    testParserParsesStructDeclAndFieldAccess();
+    testStructCodegenUsesPointerSafeSubtractionWithNoBoundsCheck();
+    testTypeCheckerRejectsUndeclaredStructType();
+    testTypeCheckerRejectsAccessingUnknownField();
+    testTypeCheckerRejectsFieldStoreOnUnknownStructVariable();
+    testTypeCheckerRejectsFieldTypeMismatch();
+    testTypeCheckerRejectsDuplicateStructFieldNames();
+    testTypeCheckerRejectsStructTypedFunctionParameter();
+    testTypeCheckerAllowsStructFieldRoundTrip();
     testTypeCheckerRejectsDereferenceOfNonPointer();
     testTypeCheckerRejectsAddressOfUndeclaredVariable();
     testTypeCheckerRejectsStoreThroughNonPointer();

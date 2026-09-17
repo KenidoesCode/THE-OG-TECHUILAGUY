@@ -1,0 +1,19 @@
+// Basic struct round trip: write both fields of a local struct
+// variable, read them back individually, confirming each field is its
+// own genuine storage location (not aliased to the other) and that
+// field access reuses the pointer/array address-arithmetic machinery
+// correctly for a compile-time-constant field offset instead of a
+// runtime array index.
+struct Point {
+    x: i32,
+    y: i32
+}
+
+fn main() -> i32 {
+    let p: Point;
+
+    p.x = 10;
+    p.y = 32;
+
+    return p.x + p.y;
+}

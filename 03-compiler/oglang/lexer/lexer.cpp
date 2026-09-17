@@ -92,6 +92,8 @@ std::vector<Token> Lexer::tokenize() {
                 kind = TokenKind::Return;
             else if (text == "let")
                 kind = TokenKind::Let;
+            else if (text == "struct")
+                kind = TokenKind::Struct;
             else if (text == "if")
                 kind = TokenKind::If;
             else if (text == "else")
@@ -193,6 +195,12 @@ std::vector<Token> Lexer::tokenize() {
             case ',':
                 text = ",";
                 kind = TokenKind::Comma;
+                advance();
+                break;
+
+            case '.':
+                text = ".";
+                kind = TokenKind::Dot;
                 advance();
                 break;
 

@@ -10,6 +10,7 @@ public:
     explicit Parser(const std::vector<Token>& tokens);
 
     Function parseFunction();
+    StructDecl parseStructDecl();
     Program parseProgram();
 
 private:
@@ -33,6 +34,7 @@ private:
     std::unique_ptr<Statement> parseAssign();
     std::unique_ptr<Statement> parseStore();
     std::unique_ptr<Statement> parseIndexStore();
+    std::unique_ptr<Statement> parseFieldStore();
 
     std::unique_ptr<Expr> parseExpression();
     std::unique_ptr<Expr> parseEquality();

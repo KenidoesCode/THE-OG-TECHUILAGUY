@@ -6,6 +6,7 @@ enum class TokenKind {
     Fn,
     Return,
     Let,
+    Struct,
 
     TypeI32,
     TypePtr,
@@ -27,6 +28,7 @@ enum class TokenKind {
     Semicolon,
     Comma,
     Equal,
+    Dot,
 
     Plus,
     Minus,

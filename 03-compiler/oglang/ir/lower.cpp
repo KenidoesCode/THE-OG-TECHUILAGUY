@@ -6,7 +6,11 @@ std::string IRLowerer::freshLabel(const std::string& prefix) {
     return prefix + std::to_string(nextLabel++);
 }
 
-IRFunction IRLowerer::lower(const Function& function) {
+IRFunction IRLowerer::lower(
+    const Function& function,
+    const std::unordered_map<std::string, std::vector<std::string>>&
+        structLayouts
+) {
     IRFunction ir;
     ir.name = function.name;
     ir.paramCount = static_cast<int>(function.params.size());
@@ -15,6 +19,9 @@ IRFunction IRLowerer::lower(const Function& function) {
     nextLabel = 0;
     variables.clear();
     arrays.clear();
+    structFieldOrder = structLayouts;
+    structVars.clear();
+    structVarTypes.clear();
 
     for (size_t i = 0; i < function.params.size(); ++i) {
         ValueId dst = nextValue++;
@@ -71,6 +78,58 @@ ValueId IRLowerer::lowerElementAddress(
     ValueId baseAddress = nextValue++;
     ir.instructions.push_back({
         OpCode::AddressOfI32, baseAddress, elementZero, -1, 0, {}, ""
+    });
+
+    ValueId effectiveAddress = nextValue++;
+    ir.instructions.push_back({
+        OpCode::PtrSubI32, effectiveAddress, baseAddress, byteOffset, 0, {}, ""
+    });
+
+    return effectiveAddress;
+}
+
+ValueId IRLowerer::lowerFieldAddress(
+    const std::string& structVarName,
+    const std::string& fieldName,
+    IRFunction& ir
+) {
+    auto varIt = structVars.find(structVarName);
+
+    if (varIt == structVars.end()) {
+        throw std::runtime_error(
+            "Unknown struct variable: " + structVarName
+        );
+    }
+
+    const std::string& structType = structVarTypes.at(structVarName);
+    const std::vector<std::string>& fieldOrder =
+        structFieldOrder.at(structType);
+
+    int fieldIndex = -1;
+    for (size_t i = 0; i < fieldOrder.size(); ++i) {
+        if (fieldOrder[i] == fieldName) {
+            fieldIndex = static_cast<int>(i);
+            break;
+        }
+    }
+
+    if (fieldIndex < 0) {
+        throw std::runtime_error(
+            "Struct '" + structType + "' has no field named: " +
+            fieldName
+        );
+    }
+
+    ValueId fieldZero = varIt->second[0];
+
+    ValueId byteOffset = nextValue++;
+    ir.instructions.push_back({
+        OpCode::ConstI32, byteOffset, -1, -1, fieldIndex * 8, {}, ""
+    });
+
+    ValueId baseAddress = nextValue++;
+    ir.instructions.push_back({
+        OpCode::AddressOfI32, baseAddress, fieldZero, -1, 0, {}, ""
     });
 
     ValueId effectiveAddress = nextValue++;
@@ -162,6 +221,47 @@ void IRLowerer::lowerStatement(
 
         ir.arrayGroups.push_back(elements);
         arrays[arrayDecl->name] = std::move(elements);
+
+        return;
+    }
+
+    if (auto* structVarDecl =
+            dynamic_cast<const StructVarDeclStmt*>(&statement)) {
+
+        const std::vector<std::string>& fieldOrder =
+            structFieldOrder.at(structVarDecl->structType);
+
+        std::vector<ValueId> fields;
+        fields.reserve(fieldOrder.size());
+
+        for (size_t i = 0; i < fieldOrder.size(); ++i) {
+            ValueId field = nextValue++;
+
+            // Zero-initialized: structs have no literal-initializer
+            // syntax yet, same as arrays.
+            ir.instructions.push_back({
+                OpCode::ConstI32, field, -1, -1, 0, {}, ""
+            });
+
+            fields.push_back(field);
+        }
+
+        ir.arrayGroups.push_back(fields);
+        structVars[structVarDecl->name] = fields;
+        structVarTypes[structVarDecl->name] = structVarDecl->structType;
+
+        return;
+    }
+
+    if (auto* fieldStore = dynamic_cast<const FieldStoreStmt*>(&statement)) {
+        ValueId effectiveAddress = lowerFieldAddress(
+            fieldStore->structVarName, fieldStore->fieldName, ir
+        );
+        ValueId value = lowerExpr(*fieldStore->value, ir);
+
+        ir.instructions.push_back({
+            OpCode::StoreI32, -1, effectiveAddress, value, 0, {}, ""
+        });
 
         return;
     }
@@ -352,6 +452,19 @@ ValueId IRLowerer::lowerExpr(
     if (auto* indexExpr = dynamic_cast<const IndexExpr*>(&expr)) {
         ValueId effectiveAddress =
             lowerElementAddress(indexExpr->arrayName, *indexExpr->index, ir);
+
+        ValueId dst = nextValue++;
+        ir.instructions.push_back({
+            OpCode::LoadI32, dst, effectiveAddress, -1, 0, {}, ""
+        });
+
+        return dst;
+    }
+
+    if (auto* fieldAccess = dynamic_cast<const FieldAccessExpr*>(&expr)) {
+        ValueId effectiveAddress = lowerFieldAddress(
+            fieldAccess->structVarName, fieldAccess->fieldName, ir
+        );
 
         ValueId dst = nextValue++;
         ir.instructions.push_back({

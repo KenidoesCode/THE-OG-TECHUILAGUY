@@ -183,6 +183,29 @@ through a running native binary) test,
 `03-compiler/oglang/tests/programs/const_ptr.og`, exercises the
 accepted paths end-to-end.
 
+## Amendment (struct types)
+
+OGLang gained struct types after the const/mut amendment above. This
+is a type-system/aggregate-data feature, not a memory-safety
+mechanism, and is noted here only because struct fields inherit
+exactly the same safety characterization as everything else in this
+ADR: a struct field is a plain `i32`/`ptr`/`constptr` storage location
+like any array element or local variable, with none of the aliasing,
+lifetime, or use-after-return guarantees this ADR already documents as
+absent. `p.x = &local; return p;`-style patterns (were struct returns
+supported, which they are not yet) would have exactly the same
+dangling-pointer exposure as returning `&local` directly.
+
+Struct fields are addressed by a compile-time-constant offset (unlike
+an array's runtime index), so field access needs no bounds check — an
+unknown field name is rejected by the type checker before a program
+ever runs, not a value that could vary at runtime. Structs cannot yet
+be used as function parameters or return types (no calling convention
+for aggregates has been designed), and fields are restricted to
+`i32`/`ptr`/`constptr` (no nested structs, no struct-typed arrays) —
+both restrictions enforced explicitly by the type checker rather than
+left to silently miscompile.
+
 ## Consequences
 
 Every claim about OGLang elsewhere in this repository (README.md,

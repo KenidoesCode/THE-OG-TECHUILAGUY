@@ -36,11 +36,12 @@ a Linux process loader actually runs.
 | **Pointers**: `&`, `*` read/write, address-taken locals forced to stack | TESTED | `tests/programs/pointer_aliasing.og`, `pointer_spill.og` |
 | **const/mut pointer distinction** (`ptr` vs `constptr`, compile-time only, no borrow checking) | TESTED | `tests/programs/const_ptr.og`; `tests/unit_tests.cpp` — widening (`ptr`→`constptr`) allowed both ways it can occur (variables, call args), writes through `constptr` and narrowing (`constptr`→`ptr`) rejected; see `docs/ADR/0001-oglang-memory-model.md` amendment for exactly what this does/does not guarantee |
 | **Fixed-size arrays**: `i32[N]`, contiguous-slot allocation, pointer-arithmetic indexing | TESTED | `tests/programs/arrays.og`, `arrays_with_calls.og` |
+| **Struct types**: `struct Name { field: type, ... }`, zero-initialized locals, field read/write reusing array address arithmetic with compile-time-constant offsets (no bounds check needed) | TESTED | `tests/programs/struct_fields.og`, `struct_with_calls.og`; `tests/unit_tests.cpp` — parsing, field-name/type/struct-type-existence rejection, duplicate-field rejection, struct-as-function-parameter rejection (no calling convention for aggregates yet), well-typed round trip; fields restricted to `i32`/`ptr`/`constptr` (no nested structs, no struct-typed arrays) |
 | **Runtime array bounds checking**: out-of-range/negative index traps (exit 101) | TESTED | `tests/programs/array_out_of_bounds.og`, `array_negative_index.og` |
-| Memory-safety model | DESIGNED | [`docs/ADR/0001-oglang-memory-model.md`](docs/ADR/0001-oglang-memory-model.md) — explicitly documents the current model as raw/unsafe (C-like), records which mechanisms are tested (pointer aliasing, spilled-pointer correctness, array read/write) versus which safety properties are *not* enforced (no bounds checking, no use-after-return detection, no borrow checking), and records candidate next steps. Bounds checking, a const/mut pointer distinction, and full borrow-checking are PLANNED, not started. |
-| Structs, enums, modules | PLANNED | not started |
+| Memory-safety model | DESIGNED | [`docs/ADR/0001-oglang-memory-model.md`](docs/ADR/0001-oglang-memory-model.md) — explicitly documents the current model as raw/unsafe (C-like), records which mechanisms are tested (pointer aliasing, spilled-pointer correctness, array read/write, bounds checking, const/mut pointers) versus which safety properties are *not* enforced (no use-after-return detection, no aliasing discipline beyond const/mut, no borrow checking), and records candidate next steps. Full borrow-checking remains PLANNED, not started. |
+| Enums, modules | PLANNED | not started |
 | Atomics, volatile, MMIO, inline-asm boundary | PLANNED | not started |
-| Types other than `i32`/`ptr` | PLANNED | not started |
+| Types other than `i32`/`ptr`/`constptr`/user-declared structs | PLANNED | not started |
 | Freestanding/kernel-target compilation | PLANNED | OGLang only targets a hosted Linux ELF process today; the OS kernel itself is still C++/asm |
 
 **Test suite:** 75 unit assertions, 19 end-to-end programs, all passing

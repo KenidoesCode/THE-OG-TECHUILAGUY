@@ -6,12 +6,16 @@
 
 namespace {
 
+using StructTable =
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>>;
+
 class Checker {
 public:
-    explicit Checker(
-        const std::unordered_map<std::string, FunctionSignature>& signatures
+    Checker(
+        const std::unordered_map<std::string, FunctionSignature>& signatures,
+        const StructTable& structs
     )
-        : signatures(signatures) {}
+        : signatures(signatures), structs(structs) {}
 
     std::unordered_map<std::string, std::string> variables;
 
@@ -19,6 +23,13 @@ public:
     // `variables`: an array is never used as a plain value, only
     // indexed, so there is no ambiguity in keeping them apart.
     std::unordered_map<std::string, std::pair<std::string, int>> arrays;
+
+    // struct-typed local variable name -> its struct type name. A
+    // separate namespace from `variables` for the same reason arrays
+    // are kept separate: a struct-typed variable is never used as a
+    // plain value (there is no struct-to-struct assignment or
+    // pass-by-value yet), only field-accessed.
+    std::unordered_map<std::string, std::string> structVars;
 
     // "constptr" is a read-only view of the same underlying address as
     // "ptr" — a mutable pointer may always be used where a const one is
@@ -96,6 +107,15 @@ public:
             }
 
             return "i32";
+        }
+
+        if (auto* fieldAccess =
+                dynamic_cast<const FieldAccessExpr*>(&expr)) {
+
+            return resolveFieldType(
+                fieldAccess->structVarName,
+                fieldAccess->fieldName
+            );
         }
 
         if (auto* indexExpr = dynamic_cast<const IndexExpr*>(&expr)) {
@@ -190,6 +210,38 @@ public:
         throw std::runtime_error("Unknown expression");
     }
 
+    std::string resolveFieldType(
+        const std::string& structVarName,
+        const std::string& fieldName
+    ) {
+        auto varIt = structVars.find(structVarName);
+
+        if (varIt == structVars.end()) {
+            throw std::runtime_error(
+                "Unknown struct variable: " + structVarName
+            );
+        }
+
+        auto structIt = structs.find(varIt->second);
+
+        if (structIt == structs.end()) {
+            throw std::runtime_error(
+                "Unknown struct type: " + varIt->second
+            );
+        }
+
+        auto fieldIt = structIt->second.find(fieldName);
+
+        if (fieldIt == structIt->second.end()) {
+            throw std::runtime_error(
+                "Struct '" + varIt->second +
+                "' has no field named: " + fieldName
+            );
+        }
+
+        return fieldIt->second;
+    }
+
     void checkBlock(
         const std::vector<std::unique_ptr<Statement>>& body,
         const std::string& functionReturnType
@@ -264,6 +316,40 @@ public:
             if (valueType != "i32") {
                 throw std::runtime_error(
                     "Cannot store a non-i32 value through a pointer"
+                );
+            }
+
+            return;
+        }
+
+        if (auto* structVarDecl =
+                dynamic_cast<const StructVarDeclStmt*>(&statement)) {
+
+            if (!structs.contains(structVarDecl->structType)) {
+                throw std::runtime_error(
+                    "Unknown struct type: " + structVarDecl->structType
+                );
+            }
+
+            structVars[structVarDecl->name] = structVarDecl->structType;
+            return;
+        }
+
+        if (auto* fieldStore =
+                dynamic_cast<const FieldStoreStmt*>(&statement)) {
+
+            std::string fieldType = resolveFieldType(
+                fieldStore->structVarName,
+                fieldStore->fieldName
+            );
+
+            std::string valueType = checkExpr(*fieldStore->value);
+
+            if (!assignable(fieldType, valueType)) {
+                throw std::runtime_error(
+                    "Type mismatch storing into field '" +
+                    fieldStore->fieldName + "' of struct variable: " +
+                    fieldStore->structVarName
                 );
             }
 
@@ -370,7 +456,17 @@ public:
 
 private:
     const std::unordered_map<std::string, FunctionSignature>& signatures;
+    const StructTable& structs;
 };
+
+// Base (non-aggregate) types a value can actually have today. A
+// struct field's own type is restricted to this set for now — nested
+// structs and struct-typed arrays are not supported, a limitation
+// this function exists to enforce explicitly rather than let silently
+// misbehave in IR lowering.
+bool isBaseType(const std::string& type) {
+    return type == "i32" || type == "ptr" || type == "constptr";
+}
 
 // A function's body must be guaranteed to execute a return statement on
 // every path, or codegen would fall off the end of its generated
@@ -403,6 +499,40 @@ bool blockAlwaysReturns(
 
 void TypeChecker::check(const Program& program) {
     signatures.clear();
+    structs.clear();
+
+    for (const auto& structDecl : program.structs) {
+        if (structs.contains(structDecl.name)) {
+            throw std::runtime_error(
+                "Struct redefined: " + structDecl.name
+            );
+        }
+
+        std::unordered_map<std::string, std::string> fields;
+
+        for (const auto& field : structDecl.fields) {
+            if (fields.contains(field.name)) {
+                throw std::runtime_error(
+                    "Field redefined in struct '" + structDecl.name +
+                    "': " + field.name
+                );
+            }
+
+            if (!isBaseType(field.type)) {
+                throw std::runtime_error(
+                    "Struct '" + structDecl.name + "' field '" +
+                    field.name + "' has unsupported type: " +
+                    field.type +
+                    " (nested structs and struct-typed arrays are "
+                    "not supported)"
+                );
+            }
+
+            fields[field.name] = field.type;
+        }
+
+        structs[structDecl.name] = std::move(fields);
+    }
 
     for (const auto& function : program) {
         if (signatures.contains(function.name)) {
@@ -413,8 +543,30 @@ void TypeChecker::check(const Program& program) {
 
         FunctionSignature sig;
         for (const auto& param : function.params) {
+            // Struct-typed parameters/returns need an ABI (how does a
+            // multi-field aggregate get passed/returned?) that hasn't
+            // been designed yet — rejected explicitly here rather than
+            // silently miscompiled by IR lowering, which only knows
+            // how to marshal a single i32/ptr/constptr value per
+            // argument.
+            if (!isBaseType(param.type)) {
+                throw std::runtime_error(
+                    "Struct types are not yet supported as function "
+                    "parameters: " + function.name + "(" + param.name +
+                    ": " + param.type + ")"
+                );
+            }
+
             sig.paramTypes.push_back(param.type);
         }
+
+        if (!isBaseType(function.returnType)) {
+            throw std::runtime_error(
+                "Struct types are not yet supported as function "
+                "return types: " + function.name
+            );
+        }
+
         sig.returnType = function.returnType;
 
         signatures[function.name] = std::move(sig);
@@ -427,7 +579,7 @@ void TypeChecker::check(const Program& program) {
     }
 
     for (const auto& function : program) {
-        Checker checker(signatures);
+        Checker checker(signatures, structs);
 
         for (const auto& param : function.params) {
             checker.variables[param.name] = param.type;

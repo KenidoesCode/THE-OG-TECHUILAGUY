@@ -12,6 +12,8 @@
 #include <iostream>
 #include <iterator>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 int main(int argc, char** argv) {
     std::string sourcePath = argc > 1 ? argv[1] : "main.og";
@@ -38,12 +40,22 @@ int main(int argc, char** argv) {
         TypeChecker checker;
         checker.check(program);
 
+        std::unordered_map<std::string, std::vector<std::string>>
+            structLayouts;
+        for (const StructDecl& structDecl : program.structs) {
+            std::vector<std::string> fieldNames;
+            for (const Param& field : structDecl.fields) {
+                fieldNames.push_back(field.name);
+            }
+            structLayouts[structDecl.name] = std::move(fieldNames);
+        }
+
         X86Codegen codegen;
         std::string assembly = codegen.generateEntryPoint("main");
 
         for (const Function& function : program) {
             IRLowerer lowerer;
-            IRFunction ir = lowerer.lower(function);
+            IRFunction ir = lowerer.lower(function, structLayouts);
 
             LivenessAnalyzer liveness;
             auto ranges = liveness.analyze(ir);

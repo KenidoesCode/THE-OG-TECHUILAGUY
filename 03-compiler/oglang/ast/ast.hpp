@@ -74,6 +74,20 @@ struct IndexExpr : Expr {
         : arrayName(std::move(arrayName)), index(std::move(index)) {}
 };
 
+// structVar.field — reads one named field of a local struct-typed
+// variable. Restricted to a plain (structVarName, fieldName) pair, not
+// a composable base expression, mirroring IndexExpr's own restriction
+// to a bare array name — nothing in this compiler supports chained
+// member-like access (a.b.c) yet.
+struct FieldAccessExpr : Expr {
+    std::string structVarName;
+    std::string fieldName;
+
+    FieldAccessExpr(std::string structVarName, std::string fieldName)
+        : structVarName(std::move(structVarName)),
+          fieldName(std::move(fieldName)) {}
+};
+
 struct CallExpr : Expr {
     std::string callee;
     std::vector<std::unique_ptr<Expr>> args;
@@ -166,6 +180,35 @@ struct IndexStoreStmt : Statement {
           value(std::move(value)) {}
 };
 
+// let name: StructType; — declares a struct-typed local variable with
+// every field zero-initialized. No initializer expression, exactly
+// like ArrayDeclStmt: structs have no literal-initializer syntax yet.
+struct StructVarDeclStmt : Statement {
+    std::string name;
+    std::string structType;
+
+    StructVarDeclStmt(std::string name, std::string structType)
+        : name(std::move(name)),
+          structType(std::move(structType)) {}
+};
+
+// structVar.field = value; — writes one named field of a local
+// struct-typed variable.
+struct FieldStoreStmt : Statement {
+    std::string structVarName;
+    std::string fieldName;
+    std::unique_ptr<Expr> value;
+
+    FieldStoreStmt(
+        std::string structVarName,
+        std::string fieldName,
+        std::unique_ptr<Expr> value
+    )
+        : structVarName(std::move(structVarName)),
+          fieldName(std::move(fieldName)),
+          value(std::move(value)) {}
+};
+
 struct WhileStmt : Statement {
     std::unique_ptr<Expr> condition;
     std::vector<std::unique_ptr<Statement>> body;
@@ -206,4 +249,46 @@ struct Function {
     std::vector<std::unique_ptr<Statement>> body;
 };
 
-using Program = std::vector<Function>;
+// struct Name { field1: type1, field2: type2, ... } — a top-level
+// struct type definition. Fields are laid out contiguously, in
+// declaration order, exactly like a fixed-size array's elements (see
+// IRLowerer/RegisterAllocator's arrayGroups); the only difference is a
+// struct is addressed by named, compile-time-constant field offsets
+// instead of a runtime index, so field access needs no bounds check.
+// A field's own type reuses Param's shape (name + type string).
+struct StructDecl {
+    std::string name;
+    std::vector<Param> fields;
+};
+
+// A program is one or more struct type definitions plus one or more
+// functions. Struct definitions are program-wide (visible to every
+// function regardless of declaration order, same as function
+// signatures); Program keeps a vector<Function>-compatible interface
+// (size/operator[]/begin/end/push_back) so the many existing call
+// sites written when Program was a bare std::vector<Function> keep
+// working unchanged against the .functions half.
+struct Program {
+    std::vector<StructDecl> structs;
+    std::vector<Function> functions;
+
+    size_t size() const { return functions.size(); }
+    bool empty() const { return functions.empty(); }
+    void push_back(Function function) {
+        functions.push_back(std::move(function));
+    }
+
+    Function& operator[](size_t index) { return functions[index]; }
+    const Function& operator[](size_t index) const {
+        return functions[index];
+    }
+
+    std::vector<Function>::iterator begin() { return functions.begin(); }
+    std::vector<Function>::iterator end() { return functions.end(); }
+    std::vector<Function>::const_iterator begin() const {
+        return functions.begin();
+    }
+    std::vector<Function>::const_iterator end() const {
+        return functions.end();
+    }
+};

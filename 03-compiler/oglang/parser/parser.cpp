@@ -46,16 +46,60 @@ Program Parser::parseProgram() {
     Program program;
 
     while (peek().kind != TokenKind::End) {
-        program.push_back(parseFunction());
+        if (peek().kind == TokenKind::Struct) {
+            program.structs.push_back(parseStructDecl());
+        } else {
+            program.push_back(parseFunction());
+        }
     }
 
     return program;
+}
+
+StructDecl Parser::parseStructDecl() {
+    expect(TokenKind::Struct);
+
+    std::string name = expect(TokenKind::Identifier).text;
+
+    expect(TokenKind::LBrace);
+
+    std::vector<Param> fields;
+
+    if (peek().kind != TokenKind::RBrace) {
+        while (true) {
+            std::string fieldName =
+                expect(TokenKind::Identifier).text;
+
+            expect(TokenKind::Colon);
+
+            std::string fieldType = parseType();
+
+            fields.push_back({fieldName, fieldType});
+
+            if (match(TokenKind::Comma))
+                continue;
+
+            break;
+        }
+    }
+
+    expect(TokenKind::RBrace);
+
+    return StructDecl{name, std::move(fields)};
 }
 
 std::string Parser::parseType() {
     if (match(TokenKind::TypeI32)) return "i32";
     if (match(TokenKind::TypePtr)) return "ptr";
     if (match(TokenKind::TypeConstPtr)) return "constptr";
+
+    // A bare identifier is accepted here as a possible struct type
+    // name without checking it actually names a declared struct — the
+    // parser stays permissive about type syntax; the type checker is
+    // what rejects an identifier that isn't a real struct type.
+    if (peek().kind == TokenKind::Identifier) {
+        return advance().text;
+    }
 
     throw std::runtime_error("Expected type");
 }
@@ -158,6 +202,16 @@ std::unique_ptr<Statement> Parser::parseStatement() {
             return std::make_unique<ArrayDeclStmt>(name, type, size);
         }
 
+        // A struct-typed local declares no initializer — every field
+        // starts zero, the same as ArrayDeclStmt. This is the only
+        // place a `let` is allowed to skip the `= expr` form: if the
+        // type isn't followed by `[` (array) or `=` (plain value), it
+        // must be `;` (struct). The type checker, not the parser,
+        // confirms `type` actually names a declared struct.
+        if (match(TokenKind::Semicolon)) {
+            return std::make_unique<StructVarDeclStmt>(name, type);
+        }
+
         expect(TokenKind::Equal);
 
         auto initializer =
@@ -198,6 +252,10 @@ std::unique_ptr<Statement> Parser::parseStatement() {
         peekNext().kind == TokenKind::LBracket)
         return parseIndexStore();
 
+    if (peek().kind == TokenKind::Identifier &&
+        peekNext().kind == TokenKind::Dot)
+        return parseFieldStore();
+
     if (peek().kind == TokenKind::Star)
         return parseStore();
 
@@ -223,6 +281,26 @@ std::unique_ptr<Statement> Parser::parseIndexStore() {
     return std::make_unique<IndexStoreStmt>(
         name,
         std::move(index),
+        std::move(value)
+    );
+}
+
+std::unique_ptr<Statement> Parser::parseFieldStore() {
+    std::string structVarName = expect(TokenKind::Identifier).text;
+
+    expect(TokenKind::Dot);
+
+    std::string fieldName = expect(TokenKind::Identifier).text;
+
+    expect(TokenKind::Equal);
+
+    auto value = parseExpression();
+
+    expect(TokenKind::Semicolon);
+
+    return std::make_unique<FieldStoreStmt>(
+        structVarName,
+        fieldName,
         std::move(value)
     );
 }
@@ -563,6 +641,15 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
             return std::make_unique<IndexExpr>(
                 name,
                 std::move(index)
+            );
+        }
+
+        if (match(TokenKind::Dot)) {
+            std::string fieldName = expect(TokenKind::Identifier).text;
+
+            return std::make_unique<FieldAccessExpr>(
+                name,
+                fieldName
             );
         }
 

@@ -139,7 +139,26 @@ and does not guarantee — bounds checking and the const/mut pointer
 distinction are real; ownership, borrowing, and use-after-return
 detection are not.
 
-`03-compiler/oglang/tests/e2e_test.sh` runs twenty programs
+OGLang also has struct types: `struct Point { x: i32, y: i32 }` at the
+top level, `let p: Point;` for a zero-initialized local (structs have
+no literal-initializer syntax, same as arrays), and `p.x`/`p.x = v;`
+for field read/write. Field access reuses arrays' exact address
+arithmetic and stack layout — each struct-typed local is one more
+`arrayGroups` entry (one fresh stack slot per field, allocated
+contiguously by the register allocator), and `p.x` lowers to field 0's
+address minus a byte offset via the same `AddressOfI32`/`PtrSubI32`
+opcodes array indexing uses, except the offset is a `fieldIndex * 8`
+constant resolved once by the type checker rather than a runtime
+expression — so there is no `MulI32`, and since an unknown field name
+is a compile error rather than a possible runtime value, no bounds
+check either. Struct types are deliberately restricted for now: fields
+must be `i32`/`ptr`/`constptr` (no nested structs, no struct-typed
+arrays), and a struct cannot be used as a function parameter or return
+type (there is no calling convention yet for passing or returning a
+multi-field aggregate) — both rejected explicitly by the type checker
+rather than left to silently miscompile.
+
+`03-compiler/oglang/tests/e2e_test.sh` runs twenty-two programs
 end-to-end and checks their real process exit codes, including cases
 specifically chosen to fail under a naive calling convention, an
 unconstrained division lowering, superficial/fake spilling,
@@ -151,12 +170,13 @@ unpacking and argument marshaling, and
 two separate instances of the same 64-bit-pointer-truncation bug class
 (one in the pointer feature itself, one in array element addressing).
 Frontend and codegen invariants are additionally covered by
-`03-compiler/oglang/tests/unit_test.sh` (92 assertions). The type checker
+`03-compiler/oglang/tests/unit_test.sh` (109 assertions). The type checker
 also verifies every function returns on
 all paths (an `if` without an `else`, or a function ending in a bare
 `while` loop, is rejected — a loop may run zero times).
 Not yet implemented: generics, traits, ownership/borrowing, `for` loops,
-structs, enums, modules, and any type other than `i32`/`ptr`/`constptr`.
+enums, modules, nested/struct-typed-array fields, struct function
+parameters/returns, and any type other than `i32`/`ptr`/`constptr`.
 
 ## 🖥️ Techuilaguy OS — second deep system
 
@@ -260,7 +280,8 @@ heap, filesystem, or networking are implemented yet — see
 - [x] Fixed-size arrays: `i32[N]` with contiguous-slot allocation and pointer-arithmetic-based indexing
 - [x] Runtime array bounds checking (out-of-range and negative indices both trap; see [ADR 0001](docs/ADR/0001-oglang-memory-model.md))
 - [x] `const`/`mut` pointer distinction (`constptr`/`ptr`), compile-time only, no runtime cost — a `ptr` widens into a `constptr`, writes through a `constptr` are rejected by the type checker; not ownership or borrowing (see [ADR 0001](docs/ADR/0001-oglang-memory-model.md))
-- [ ] `for` loops, structs, enums, modules, types other than `i32`/`ptr`/`constptr`
+- [x] Struct types: `struct Name { field: type, ... }`, zero-initialized locals, field read/write (`p.x`, `p.x = v;`) reusing array address arithmetic with compile-time-constant field offsets (no bounds check needed); fields restricted to `i32`/`ptr`/`constptr`, structs not yet supported as function parameters/return types
+- [ ] `for` loops, enums, modules, nested/struct-typed-array fields, struct function parameters/returns
 - [ ] A real borrow-checking pass, generics, traits, safe concurrency
 - [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation
 - [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)

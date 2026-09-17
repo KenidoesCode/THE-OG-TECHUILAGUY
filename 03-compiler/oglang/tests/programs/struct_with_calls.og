@@ -1,0 +1,32 @@
+// Struct field access combined with register pressure and function
+// calls sharing the register file simultaneously — the same stress
+// shape as arrays_with_calls.og, which caught a real 32-bit pointer
+// truncation bug historically for array element addresses. Struct
+// field addresses reuse the identical AddressOfI32/PtrSubI32 codegen
+// path, so this is the analogous check for that path.
+fn sum(a: i32, b: i32, c: i32) -> i32 {
+    return a + b + c;
+}
+
+struct Vec3 {
+    x: i32,
+    y: i32,
+    z: i32
+}
+
+fn main() -> i32 {
+    let v: Vec3;
+    let a: i32 = 1;
+    let b: i32 = 2;
+    let c: i32 = 3;
+    let d: i32 = 4;
+    let e: i32 = 5;
+
+    v.x = 7;
+    v.y = 8;
+    v.z = 9;
+
+    let total: i32 = sum(a, b, c) + sum(d, e, v.x) + v.y + v.z;
+
+    return total;
+}

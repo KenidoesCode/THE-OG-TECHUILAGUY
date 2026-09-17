@@ -88,6 +88,12 @@ check "a pointer forced to spill is reloaded as a full 64-bit value, not truncat
 check "constptr: a mutable ptr widens into a constptr parameter/variable and reads correctly through it" \
     "tests/programs/const_ptr.og" 42
 
+check "structs: write and read back both fields of a local struct variable" \
+    "tests/programs/struct_fields.og" 42
+
+check "structs combined with register pressure and function calls" \
+    "tests/programs/struct_with_calls.og" 39
+
 check "arrays: write through one loop, read back through a separate loop" \
     "tests/programs/arrays.og" 100
 
