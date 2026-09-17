@@ -10,6 +10,7 @@ public:
     explicit Parser(const std::vector<Token>& tokens);
 
     Function parseFunction();
+    Program parseProgram();
 
 private:
     const std::vector<Token>& tokens;
@@ -20,6 +21,9 @@ private:
 
     bool match(TokenKind kind);
     const Token& expect(TokenKind kind);
+
+    std::vector<Param> parseParamList();
+    std::vector<std::unique_ptr<Expr>> parseArgList();
 
     std::unique_ptr<Statement> parseStatement();
     std::unique_ptr<Statement> parseIf();

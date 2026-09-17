@@ -56,7 +56,6 @@ if [ -d "03-compiler/oglang" ]; then
             main.cpp \
             lexer/lexer.cpp \
             parser/parser.cpp \
-            semantic/analyzer.cpp \
             types/type_checker.cpp \
             ir/lower.cpp \
             analysis/liveness.cpp \

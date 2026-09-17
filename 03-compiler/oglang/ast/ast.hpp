@@ -37,6 +37,18 @@ struct BinaryExpr : Expr {
           right(std::move(right)) {}
 };
 
+struct CallExpr : Expr {
+    std::string callee;
+    std::vector<std::unique_ptr<Expr>> args;
+
+    CallExpr(
+        std::string callee,
+        std::vector<std::unique_ptr<Expr>> args
+    )
+        : callee(std::move(callee)),
+          args(std::move(args)) {}
+};
+
 struct Statement {
     virtual ~Statement() = default;
 };
@@ -79,8 +91,16 @@ struct IfStmt : Statement {
           elseBody(std::move(elseBody)) {}
 };
 
+struct Param {
+    std::string name;
+    std::string type;
+};
+
 struct Function {
     std::string name;
+    std::vector<Param> params;
     std::string returnType;
     std::vector<std::unique_ptr<Statement>> body;
 };
+
+using Program = std::vector<Function>;

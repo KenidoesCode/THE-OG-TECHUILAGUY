@@ -28,6 +28,10 @@ LivenessAnalyzer::analyze(const IRFunction& function) {
         touch(inst.destination);
         touch(inst.left);
         touch(inst.right);
+
+        for (ValueId arg : inst.args) {
+            touch(arg);
+        }
     }
 
     return ranges;

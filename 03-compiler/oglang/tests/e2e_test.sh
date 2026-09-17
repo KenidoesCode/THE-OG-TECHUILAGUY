@@ -5,6 +5,9 @@
 #
 # This is the only test in the tree that verifies the compiler produces a
 # binary that actually runs, as opposed to inspecting intermediate output.
+# Several of the programs below are specifically chosen to fail if the
+# calling convention or register-constrained division is implemented
+# incorrectly, not just to exercise the happy path.
 
 set -u
 
@@ -37,6 +40,22 @@ check() {
     fi
 }
 
-check "arithmetic precedence (10 + 20 * 3)" "main.og" 70
+check "arithmetic precedence (10 + 20 * 3)" \
+    "main.og" 70
+
+check "register-constrained integer division (84 / 2)" \
+    "tests/programs/division.og" 42
+
+check "if/else control-flow lowering and codegen" \
+    "tests/programs/if_else.og" 1
+
+check "recursive function calls; a live value must survive the recursive call" \
+    "tests/programs/factorial.og" 120
+
+check "3-argument calling convention (ABI register marshaling)" \
+    "tests/programs/multi_arg.og" 42
+
+check "a caller-saved value must survive two separate calls that reuse it" \
+    "tests/programs/call_preserves_live_value.og" 21
 
 exit $FAIL

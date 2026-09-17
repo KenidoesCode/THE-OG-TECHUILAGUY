@@ -32,14 +32,79 @@ const Token& Parser::expect(TokenKind kind) {
     return advance();
 }
 
+Program Parser::parseProgram() {
+    Program program;
+
+    while (peek().kind != TokenKind::End) {
+        program.push_back(parseFunction());
+    }
+
+    return program;
+}
+
+std::vector<Param> Parser::parseParamList() {
+    std::vector<Param> params;
+
+    expect(TokenKind::LParen);
+
+    if (peek().kind != TokenKind::RParen) {
+        while (true) {
+            std::string name =
+                expect(TokenKind::Identifier).text;
+
+            expect(TokenKind::Colon);
+
+            std::string type;
+
+            if (match(TokenKind::TypeI32))
+                type = "i32";
+            else
+                throw std::runtime_error(
+                    "Expected parameter type"
+                );
+
+            params.push_back({name, type});
+
+            if (match(TokenKind::Comma))
+                continue;
+
+            break;
+        }
+    }
+
+    expect(TokenKind::RParen);
+
+    return params;
+}
+
+std::vector<std::unique_ptr<Expr>> Parser::parseArgList() {
+    std::vector<std::unique_ptr<Expr>> args;
+
+    expect(TokenKind::LParen);
+
+    if (peek().kind != TokenKind::RParen) {
+        while (true) {
+            args.push_back(parseExpression());
+
+            if (match(TokenKind::Comma))
+                continue;
+
+            break;
+        }
+    }
+
+    expect(TokenKind::RParen);
+
+    return args;
+}
+
 Function Parser::parseFunction() {
     expect(TokenKind::Fn);
 
     std::string name =
         expect(TokenKind::Identifier).text;
 
-    expect(TokenKind::LParen);
-    expect(TokenKind::RParen);
+    std::vector<Param> params = parseParamList();
 
     expect(TokenKind::Arrow);
 
@@ -54,7 +119,7 @@ Function Parser::parseFunction() {
 
     expect(TokenKind::LBrace);
 
-    Function function{name, returnType, {}};
+    Function function{name, std::move(params), returnType, {}};
 
     while (peek().kind != TokenKind::RBrace &&
            peek().kind != TokenKind::End) {
@@ -362,6 +427,15 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
 
         std::string name =
             advance().text;
+
+        if (peek().kind == TokenKind::LParen) {
+            auto args = parseArgList();
+
+            return std::make_unique<CallExpr>(
+                name,
+                std::move(args)
+            );
+        }
 
         return std::make_unique<VariableExpr>(
             name

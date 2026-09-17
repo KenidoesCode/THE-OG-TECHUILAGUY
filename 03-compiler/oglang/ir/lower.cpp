@@ -2,18 +2,47 @@
 
 #include <stdexcept>
 
+std::string IRLowerer::freshLabel(const std::string& prefix) {
+    return prefix + std::to_string(nextLabel++);
+}
+
 IRFunction IRLowerer::lower(const Function& function) {
     IRFunction ir;
     ir.name = function.name;
+    ir.paramCount = static_cast<int>(function.params.size());
 
     nextValue = 0;
+    nextLabel = 0;
     variables.clear();
 
-    for (const auto& statement : function.body) {
-        lowerStatement(*statement, ir);
+    for (size_t i = 0; i < function.params.size(); ++i) {
+        ValueId dst = nextValue++;
+
+        ir.instructions.push_back({
+            OpCode::ParamI32,
+            dst,
+            -1,
+            -1,
+            static_cast<int>(i),
+            {},
+            ""
+        });
+
+        variables[function.params[i].name] = dst;
     }
 
+    lowerBlock(function.body, ir);
+
     return ir;
+}
+
+void IRLowerer::lowerBlock(
+    const std::vector<std::unique_ptr<Statement>>& body,
+    IRFunction& ir
+) {
+    for (const auto& statement : body) {
+        lowerStatement(*statement, ir);
+    }
 }
 
 void IRLowerer::lowerStatement(
@@ -34,8 +63,43 @@ void IRLowerer::lowerStatement(
             -1,
             value,
             -1,
-            0
+            0,
+            {},
+            ""
         });
+
+        return;
+    }
+
+    if (auto* ifStmt = dynamic_cast<const IfStmt*>(&statement)) {
+        ValueId cond = lowerExpr(*ifStmt->condition, ir);
+
+        std::string elseLabel = freshLabel(".Lelse");
+        std::string endLabel = freshLabel(".Lend");
+
+        IRInstruction branch{
+            OpCode::JumpIfZero, -1, cond, -1, 0, {}, ""
+        };
+        branch.label = ifStmt->elseBody.empty() ? endLabel : elseLabel;
+        ir.instructions.push_back(branch);
+
+        lowerBlock(ifStmt->thenBody, ir);
+
+        if (!ifStmt->elseBody.empty()) {
+            IRInstruction jump{OpCode::Jump, -1, -1, -1, 0, {}, ""};
+            jump.label = endLabel;
+            ir.instructions.push_back(jump);
+
+            IRInstruction elseLabelInst{OpCode::Label, -1, -1, -1, 0, {}, ""};
+            elseLabelInst.label = elseLabel;
+            ir.instructions.push_back(elseLabelInst);
+
+            lowerBlock(ifStmt->elseBody, ir);
+        }
+
+        IRInstruction endLabelInst{OpCode::Label, -1, -1, -1, 0, {}, ""};
+        endLabelInst.label = endLabel;
+        ir.instructions.push_back(endLabelInst);
 
         return;
     }
@@ -57,7 +121,9 @@ ValueId IRLowerer::lowerExpr(
             dst,
             -1,
             -1,
-            integer->value
+            integer->value,
+            {},
+            ""
         });
 
         return dst;
@@ -75,6 +141,24 @@ ValueId IRLowerer::lowerExpr(
         }
 
         return it->second;
+    }
+
+    if (auto* call = dynamic_cast<const CallExpr*>(&expr)) {
+        std::vector<ValueId> argValues;
+
+        for (const auto& arg : call->args) {
+            argValues.push_back(lowerExpr(*arg, ir));
+        }
+
+        ValueId dst = nextValue++;
+
+        IRInstruction inst{OpCode::Call, dst, -1, -1, 0, {}, ""};
+        inst.args = std::move(argValues);
+        inst.label = call->callee;
+
+        ir.instructions.push_back(inst);
+
+        return dst;
     }
 
     if (auto* binary =
@@ -104,6 +188,30 @@ ValueId IRLowerer::lowerExpr(
                 opcode = OpCode::DivI32;
                 break;
 
+            case '=':
+                opcode = OpCode::CmpEqI32;
+                break;
+
+            case '!':
+                opcode = OpCode::CmpNeI32;
+                break;
+
+            case '>':
+                opcode = OpCode::CmpGtI32;
+                break;
+
+            case '<':
+                opcode = OpCode::CmpLtI32;
+                break;
+
+            case 'G':
+                opcode = OpCode::CmpGeI32;
+                break;
+
+            case 'L':
+                opcode = OpCode::CmpLeI32;
+                break;
+
             default:
                 throw std::runtime_error(
                     "Unsupported binary operator"
@@ -115,7 +223,9 @@ ValueId IRLowerer::lowerExpr(
             dst,
             left,
             right,
-            0
+            0,
+            {},
+            ""
         });
 
         return dst;

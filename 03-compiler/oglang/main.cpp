@@ -33,26 +33,29 @@ int main(int argc, char** argv) {
         auto tokens = lexer.tokenize();
 
         Parser parser(tokens);
-        Function function = parser.parseFunction();
+        Program program = parser.parseProgram();
 
         TypeChecker checker;
-        checker.check(function);
-
-        IRLowerer lowerer;
-        IRFunction ir = lowerer.lower(function);
-
-        LivenessAnalyzer liveness;
-        auto ranges = liveness.analyze(ir);
-
-        InterferenceAnalyzer interference;
-        auto graph = interference.build(ranges);
-
-        RegisterAllocator allocator;
-        auto allocation = allocator.allocate(graph);
+        checker.check(program);
 
         X86Codegen codegen;
-        std::string assembly =
-            codegen.generate(ir, allocation);
+        std::string assembly = codegen.generateEntryPoint("main");
+
+        for (const Function& function : program) {
+            IRLowerer lowerer;
+            IRFunction ir = lowerer.lower(function);
+
+            LivenessAnalyzer liveness;
+            auto ranges = liveness.analyze(ir);
+
+            InterferenceAnalyzer interference;
+            auto graph = interference.build(ranges);
+
+            RegisterAllocator allocator;
+            auto allocation = allocator.allocate(graph);
+
+            assembly += codegen.generate(ir, allocation, ranges);
+        }
 
         std::ofstream output("main.s");
 

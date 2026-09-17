@@ -154,6 +154,12 @@ std::vector<Token> Lexer::tokenize() {
                 advance();
                 break;
 
+            case ',':
+                text = ",";
+                kind = TokenKind::Comma;
+                advance();
+                break;
+
             case '+':
                 text = "+";
                 kind = TokenKind::Plus;

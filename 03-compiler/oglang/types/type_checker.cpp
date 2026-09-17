@@ -8,6 +8,11 @@ namespace {
 
 class Checker {
 public:
+    explicit Checker(
+        const std::unordered_map<std::string, FunctionSignature>& signatures
+    )
+        : signatures(signatures) {}
+
     std::unordered_map<std::string, std::string> variables;
 
     std::string checkExpr(const Expr& expr) {
@@ -28,6 +33,41 @@ public:
             return it->second;
         }
 
+        if (auto* call = dynamic_cast<const CallExpr*>(&expr)) {
+            auto it = signatures.find(call->callee);
+
+            if (it == signatures.end()) {
+                throw std::runtime_error(
+                    "Call to undefined function: " + call->callee
+                );
+            }
+
+            const FunctionSignature& sig = it->second;
+
+            if (call->args.size() != sig.paramTypes.size()) {
+                throw std::runtime_error(
+                    "Function '" + call->callee + "' expects " +
+                    std::to_string(sig.paramTypes.size()) +
+                    " argument(s), got " +
+                    std::to_string(call->args.size())
+                );
+            }
+
+            for (size_t i = 0; i < call->args.size(); ++i) {
+                std::string argType = checkExpr(*call->args[i]);
+
+                if (argType != sig.paramTypes[i]) {
+                    throw std::runtime_error(
+                        "Argument " + std::to_string(i + 1) +
+                        " to '" + call->callee +
+                        "' has wrong type"
+                    );
+                }
+            }
+
+            return sig.returnType;
+        }
+
         if (auto* binary =
                 dynamic_cast<const BinaryExpr*>(&expr)) {
 
@@ -45,6 +85,14 @@ public:
                 case '-':
                 case '*':
                 case '/':
+                case '=':
+                case '!':
+                case '>':
+                case '<':
+                case 'G':
+                case 'L':
+                    // Comparisons also produce i32 (0 or 1); OGLang
+                    // has no distinct boolean type yet.
                     return "i32";
 
                 default:
@@ -56,49 +104,104 @@ public:
 
         throw std::runtime_error("Unknown expression");
     }
-};
 
-}
+    void checkBlock(
+        const std::vector<std::unique_ptr<Statement>>& body,
+        const std::string& functionReturnType
+    ) {
+        for (const auto& statement : body) {
+            checkStatement(*statement, functionReturnType);
+        }
+    }
 
-void TypeChecker::check(const Function& function) {
-    Checker checker;
-
-    for (const auto& statement : function.body) {
-
+    void checkStatement(
+        const Statement& statement,
+        const std::string& functionReturnType
+    ) {
         if (auto* letStmt =
-                dynamic_cast<const LetStmt*>(statement.get())) {
+                dynamic_cast<const LetStmt*>(&statement)) {
 
-            std::string actual =
-                checker.checkExpr(*letStmt->initializer);
+            std::string actual = checkExpr(*letStmt->initializer);
 
             if (actual != letStmt->type) {
                 throw std::runtime_error(
-                    "Type mismatch for variable: " +
-                    letStmt->name
+                    "Type mismatch for variable: " + letStmt->name
                 );
             }
 
-            checker.variables[letStmt->name] =
-                letStmt->type;
-
-            continue;
+            variables[letStmt->name] = letStmt->type;
+            return;
         }
 
         if (auto* returnStmt =
-                dynamic_cast<const ReturnStmt*>(statement.get())) {
+                dynamic_cast<const ReturnStmt*>(&statement)) {
 
-            std::string actual =
-                checker.checkExpr(*returnStmt->value);
+            std::string actual = checkExpr(*returnStmt->value);
 
-            if (actual != function.returnType) {
+            if (actual != functionReturnType) {
+                throw std::runtime_error("Return type mismatch");
+            }
+
+            return;
+        }
+
+        if (auto* ifStmt =
+                dynamic_cast<const IfStmt*>(&statement)) {
+
+            std::string condType = checkExpr(*ifStmt->condition);
+
+            if (condType != "i32") {
                 throw std::runtime_error(
-                    "Return type mismatch"
+                    "If condition must be i32 (0 is false, nonzero is true)"
                 );
             }
 
-            continue;
+            checkBlock(ifStmt->thenBody, functionReturnType);
+            checkBlock(ifStmt->elseBody, functionReturnType);
+            return;
         }
 
         throw std::runtime_error("Unknown statement");
+    }
+
+private:
+    const std::unordered_map<std::string, FunctionSignature>& signatures;
+};
+
+}  // namespace
+
+void TypeChecker::check(const Program& program) {
+    signatures.clear();
+
+    for (const auto& function : program) {
+        if (signatures.contains(function.name)) {
+            throw std::runtime_error(
+                "Function redefined: " + function.name
+            );
+        }
+
+        FunctionSignature sig;
+        for (const auto& param : function.params) {
+            sig.paramTypes.push_back(param.type);
+        }
+        sig.returnType = function.returnType;
+
+        signatures[function.name] = std::move(sig);
+    }
+
+    if (!signatures.contains("main")) {
+        throw std::runtime_error(
+            "Program has no 'main' function"
+        );
+    }
+
+    for (const auto& function : program) {
+        Checker checker(signatures);
+
+        for (const auto& param : function.params) {
+            checker.variables[param.name] = param.type;
+        }
+
+        checker.checkBlock(function.body, function.returnType);
     }
 }

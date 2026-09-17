@@ -11,7 +11,6 @@ g++ -std=c++20 -Wall -Wextra -O2 \
     tests/unit_tests.cpp \
     lexer/lexer.cpp \
     parser/parser.cpp \
-    semantic/analyzer.cpp \
     types/type_checker.cpp \
     ir/lower.cpp \
     analysis/liveness.cpp \

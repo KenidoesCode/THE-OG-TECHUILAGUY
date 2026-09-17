@@ -7,7 +7,6 @@
 
 #include "../lexer/lexer.hpp"
 #include "../parser/parser.hpp"
-#include "../semantic/analyzer.hpp"
 #include "../types/type_checker.hpp"
 #include "../ir/lower.hpp"
 #include "../analysis/liveness.hpp"
@@ -32,19 +31,23 @@ void check(bool condition, const std::string& description) {
     }
 }
 
-void expectThrow(
+Program parseProgram(const std::string& source) {
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
+
+    Parser parser(tokens);
+    return parser.parseProgram();
+}
+
+void expectProgramThrows(
     const std::string& description,
     const std::string& source
 ) {
     try {
-        Lexer lexer(source);
-        auto tokens = lexer.tokenize();
-
-        Parser parser(tokens);
-        Function function = parser.parseFunction();
+        Program program = parseProgram(source);
 
         TypeChecker checker;
-        checker.check(function);
+        checker.check(program);
 
         std::cout << "[FAIL] " << description
                   << " — expected an error, none was thrown\n";
@@ -52,6 +55,36 @@ void expectThrow(
     } catch (const std::exception&) {
         std::cout << "[PASS] " << description << "\n";
     }
+}
+
+// Compiles a single-function program all the way to assembly and returns
+// it, so codegen invariants can be checked directly.
+std::string compileToAssembly(const std::string& source) {
+    Program program = parseProgram(source);
+
+    TypeChecker checker;
+    checker.check(program);
+
+    X86Codegen codegen;
+    std::string assembly = codegen.generateEntryPoint("main");
+
+    for (const Function& function : program) {
+        IRLowerer lowerer;
+        IRFunction ir = lowerer.lower(function);
+
+        LivenessAnalyzer liveness;
+        auto ranges = liveness.analyze(ir);
+
+        InterferenceAnalyzer interference;
+        auto graph = interference.build(ranges);
+
+        RegisterAllocator allocator;
+        auto allocation = allocator.allocate(graph);
+
+        assembly += codegen.generate(ir, allocation, ranges);
+    }
+
+    return assembly;
 }
 
 void testLexerTokenizesKeywordsAndOperators() {
@@ -65,81 +98,197 @@ void testLexerTokenizesKeywordsAndOperators() {
           "lexer: stream is terminated with End token");
 
     bool sawPlus = false;
+    bool sawComma = false;
     for (const auto& t : tokens) {
         if (t.kind == TokenKind::Plus) sawPlus = true;
+        if (t.kind == TokenKind::Comma) sawComma = true;
     }
     check(sawPlus, "lexer: recognizes '+' operator");
+    check(!sawComma, "lexer: does not spuriously emit Comma tokens");
+
+    Lexer lexer2("f(a, b, c)");
+    int commaCount = 0;
+    for (const auto& t : lexer2.tokenize()) {
+        if (t.kind == TokenKind::Comma) commaCount++;
+    }
+    check(commaCount == 2, "lexer: recognizes ',' in argument lists");
 }
 
 void testParserBuildsFunctionFromValidSource() {
-    Lexer lexer(
+    Program program = parseProgram(
         "fn main() -> i32 { let x: i32 = 10 + 20 * 3; return x; }"
     );
-    auto tokens = lexer.tokenize();
 
-    Parser parser(tokens);
-    Function function = parser.parseFunction();
-
-    check(function.name == "main", "parser: parses function name");
-    check(function.returnType == "i32",
+    check(program.size() == 1, "parser: parses a single-function program");
+    check(program[0].name == "main", "parser: parses function name");
+    check(program[0].returnType == "i32",
           "parser: parses return type");
-    check(function.body.size() == 2,
+    check(program[0].body.size() == 2,
           "parser: parses expected statement count");
+    check(program[0].params.empty(),
+          "parser: zero-parameter function has no params");
+}
+
+void testParserParsesParametersAndCalls() {
+    Program program = parseProgram(
+        "fn add(a: i32, b: i32) -> i32 { return a + b; }"
+        "fn main() -> i32 { return add(1, 2); }"
+    );
+
+    check(program.size() == 2,
+          "parser: parses multiple top-level functions");
+    check(program[0].params.size() == 2,
+          "parser: parses a two-parameter function signature");
+    check(program[0].params[0].name == "a" &&
+          program[0].params[1].name == "b",
+          "parser: preserves parameter order and names");
+
+    auto* ret = dynamic_cast<ReturnStmt*>(program[1].body[0].get());
+    check(ret != nullptr, "parser: main body parses as a return statement");
+
+    auto* call = dynamic_cast<CallExpr*>(ret->value.get());
+    check(call != nullptr, "parser: call expression parses as CallExpr");
+    check(call != nullptr && call->callee == "add",
+          "parser: call expression records the callee name");
+    check(call != nullptr && call->args.size() == 2,
+          "parser: call expression parses its argument list");
+}
+
+void testParserParsesIfElse() {
+    Program program = parseProgram(
+        "fn main() -> i32 { "
+        "  if (1 > 0) { return 1; } else { return 0; } "
+        "}"
+    );
+
+    auto* ifStmt =
+        dynamic_cast<IfStmt*>(program[0].body[0].get());
+
+    check(ifStmt != nullptr, "parser: if/else parses as IfStmt");
+    check(ifStmt != nullptr && ifStmt->thenBody.size() == 1,
+          "parser: then-branch body is parsed");
+    check(ifStmt != nullptr && ifStmt->elseBody.size() == 1,
+          "parser: else-branch body is parsed");
 }
 
 void testFullPipelineProducesRegisterAllocation() {
-    Lexer lexer(
+    std::string assembly = compileToAssembly(
         "fn main() -> i32 { let x: i32 = 10 + 20 * 3; return x; }"
     );
-    auto tokens = lexer.tokenize();
-
-    Parser parser(tokens);
-    Function function = parser.parseFunction();
-
-    TypeChecker checker;
-    checker.check(function);
-
-    IRLowerer lowerer;
-    IRFunction ir = lowerer.lower(function);
-
-    LivenessAnalyzer liveness;
-    auto ranges = liveness.analyze(ir);
-
-    InterferenceAnalyzer interference;
-    auto graph = interference.build(ranges);
-
-    RegisterAllocator allocator;
-    auto allocation = allocator.allocate(graph);
-
-    check(!ir.instructions.empty(),
-          "pipeline: lowers to at least one IR instruction");
-    check(!allocation.empty(),
-          "pipeline: register allocator assigns at least one register");
-
-    X86Codegen codegen;
-    std::string assembly = codegen.generate(ir, allocation);
 
     check(assembly.find("_start:") != std::string::npos,
           "codegen: emits a process entry point (_start)");
     check(assembly.find("syscall") != std::string::npos,
           "codegen: emits an exit syscall so binaries terminate cleanly");
+    check(assembly.find("main:") != std::string::npos,
+          "codegen: emits the main function's label");
+}
+
+void testDivisionCodegenUsesRegisterConstrainedIdiv() {
+    std::string assembly = compileToAssembly(
+        "fn main() -> i32 { let a: i32 = 84; let b: i32 = 2; return a / b; }"
+    );
+
+    check(assembly.find("cdq") != std::string::npos,
+          "codegen: division sign-extends eax into edx via cdq");
+    check(assembly.find("idivl") != std::string::npos,
+          "codegen: division lowers to idivl");
+}
+
+void testCallCodegenMarshalsArguments() {
+    std::string assembly = compileToAssembly(
+        "fn add3(a: i32, b: i32, c: i32) -> i32 { return a + b + c; }"
+        "fn main() -> i32 { return add3(1, 2, 3); }"
+    );
+
+    check(assembly.find("call add3") != std::string::npos,
+          "codegen: emits a call instruction to the callee");
+    // Argument marshaling is stack-mediated (push sources, pop into ABI
+    // registers) specifically so overlapping source/target registers
+    // can't corrupt each other; both halves must be present.
+    check(assembly.find("popq %rdi") != std::string::npos,
+          "codegen: marshals argument 1 into edi/rdi via the stack");
+    check(assembly.find("popq %rsi") != std::string::npos,
+          "codegen: marshals argument 2 into esi/rsi via the stack");
+}
+
+void testIfElseCodegenEmitsBranches() {
+    std::string assembly = compileToAssembly(
+        "fn main() -> i32 { "
+        "  if (1 > 0) { return 1; } else { return 0; } "
+        "}"
+    );
+
+    check(assembly.find("cmpl") != std::string::npos,
+          "codegen: comparison lowers to cmpl");
+    check(assembly.find("jz ") != std::string::npos,
+          "codegen: if-condition lowers to a conditional jump");
+    check(assembly.find(".Lelse") != std::string::npos ||
+          assembly.find(".Lend") != std::string::npos,
+          "codegen: if/else lowering emits labels");
 }
 
 void testTypeCheckerRejectsUnknownVariable() {
-    expectThrow(
+    expectProgramThrows(
         "type checker: rejects reference to undefined variable",
         "fn main() -> i32 { return y; }"
     );
 }
 
 void testTypeCheckerRejectsReturnTypeMismatch() {
-    // Function declares i32 return type; body only ever produces i32
-    // today, so instead we check a type mismatch on the let binding,
-    // which the checker does enforce.
-    expectThrow(
+    expectProgramThrows(
         "type checker: rejects mismatched let-binding type",
         "fn main() -> i32 { let x: bogus = 1; return x; }"
     );
+}
+
+void testTypeCheckerRejectsUndefinedFunctionCall() {
+    expectProgramThrows(
+        "type checker: rejects a call to an undefined function",
+        "fn main() -> i32 { return nonexistent(1); }"
+    );
+}
+
+void testTypeCheckerRejectsWrongArgumentCount() {
+    expectProgramThrows(
+        "type checker: rejects a call with the wrong argument count",
+        "fn add(a: i32, b: i32) -> i32 { return a + b; }"
+        "fn main() -> i32 { return add(1); }"
+    );
+}
+
+void testTypeCheckerRejectsRedefinedFunction() {
+    expectProgramThrows(
+        "type checker: rejects a function defined twice",
+        "fn f() -> i32 { return 1; }"
+        "fn f() -> i32 { return 2; }"
+        "fn main() -> i32 { return f(); }"
+    );
+}
+
+void testTypeCheckerAllowsForwardAndSelfRecursiveCalls() {
+    // main() calls fact(), defined *after* it in the source, and fact()
+    // calls itself. Neither should require a forward declaration.
+    try {
+        Program program = parseProgram(
+            "fn main() -> i32 { return fact(5); }"
+            "fn fact(n: i32) -> i32 { "
+            "  if (n <= 1) { return 1; } "
+            "  return n * fact(n - 1); "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true,
+              "type checker: allows forward references and recursion");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: allows forward references and recursion"
+                  " (threw: ") + e.what() + ")");
+    }
 }
 
 void testParserRejectsMalformedSyntax() {
@@ -161,14 +310,20 @@ void testParserRejectsMalformedSyntax() {
 }  // namespace
 
 int main() {
-    std::cerr.setf(std::ios::unitbuf);
-    std::cout.setf(std::ios::unitbuf);
-
     testLexerTokenizesKeywordsAndOperators();
     testParserBuildsFunctionFromValidSource();
+    testParserParsesParametersAndCalls();
+    testParserParsesIfElse();
     testFullPipelineProducesRegisterAllocation();
+    testDivisionCodegenUsesRegisterConstrainedIdiv();
+    testCallCodegenMarshalsArguments();
+    testIfElseCodegenEmitsBranches();
     testTypeCheckerRejectsUnknownVariable();
     testTypeCheckerRejectsReturnTypeMismatch();
+    testTypeCheckerRejectsUndefinedFunctionCall();
+    testTypeCheckerRejectsWrongArgumentCount();
+    testTypeCheckerRejectsRedefinedFunction();
+    testTypeCheckerAllowsForwardAndSelfRecursiveCalls();
     testParserRejectsMalformedSyntax();
 
     std::cout << "\n" << (failures == 0 ? "ALL TESTS PASSED" :

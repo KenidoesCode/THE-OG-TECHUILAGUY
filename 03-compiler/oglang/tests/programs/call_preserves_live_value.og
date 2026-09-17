@@ -1,0 +1,10 @@
+fn double(n: i32) -> i32 {
+    return n + n;
+}
+
+fn main() -> i32 {
+    let a: i32 = 7;
+    let b: i32 = double(a);
+    let c: i32 = double(a);
+    return b + c - a;
+}
