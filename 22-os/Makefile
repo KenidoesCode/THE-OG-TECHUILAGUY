@@ -40,7 +40,7 @@ OBJECTS := $(OBJECTS:.S=.o)
 # symbols) so the kernel image can copy one into a page at scheduler
 # run time — see scheduler_create_user_task. Never loaded by an ELF
 # loader; user.ld exists only to give objcopy a flat layout to extract.
-USERLAND_PROGRAMS := hello evil kernel_peek
+USERLAND_PROGRAMS := hello evil kernel_peek neighbor_peek
 USERLAND_BINS := $(patsubst %,userland/%.bin,$(USERLAND_PROGRAMS))
 USERLAND_EMBED_OBJECTS := $(patsubst %,userland/%_embed.o,$(USERLAND_PROGRAMS))
 

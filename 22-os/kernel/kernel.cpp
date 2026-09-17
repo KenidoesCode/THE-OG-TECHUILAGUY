@@ -22,6 +22,8 @@ extern "C" {
     extern const uint8_t _binary_userland_evil_bin_end[];
     extern const uint8_t _binary_userland_kernel_peek_bin_start[];
     extern const uint8_t _binary_userland_kernel_peek_bin_end[];
+    extern const uint8_t _binary_userland_neighbor_peek_bin_start[];
+    extern const uint8_t _binary_userland_neighbor_peek_bin_end[];
 }
 
 namespace {
@@ -227,6 +229,10 @@ extern "C" void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
         _binary_userland_kernel_peek_bin_end -
         _binary_userland_kernel_peek_bin_start
     );
+    uint32_t neighborPeekLen = static_cast<uint32_t>(
+        _binary_userland_neighbor_peek_bin_end -
+        _binary_userland_neighbor_peek_bin_start
+    );
 
     int helloPid = scheduler_create_user_task(
         _binary_userland_hello_bin_start, helloLen
@@ -237,6 +243,9 @@ extern "C" void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     int kernelPeekPid = scheduler_create_user_task(
         _binary_userland_kernel_peek_bin_start, kernelPeekLen
     );
+    int neighborPeekPid = scheduler_create_user_task(
+        _binary_userland_neighbor_peek_bin_start, neighborPeekLen
+    );
 
     serial_write("[TEST] created ring-3 task 'hello' (pid ");
     writeDecimal(static_cast<uint32_t>(helloPid));
@@ -246,10 +255,14 @@ extern "C" void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     writeDecimal(static_cast<uint32_t>(evilPid));
     serial_write(", ");
     writeDecimal(evilLen);
-    serial_write(" bytes), and 'kernel_peek' (pid ");
+    serial_write(" bytes), 'kernel_peek' (pid ");
     writeDecimal(static_cast<uint32_t>(kernelPeekPid));
     serial_write(", ");
     writeDecimal(kernelPeekLen);
+    serial_write(" bytes), and 'neighbor_peek' (pid ");
+    writeDecimal(static_cast<uint32_t>(neighborPeekPid));
+    serial_write(", ");
+    writeDecimal(neighborPeekLen);
     serial_write(" bytes)\n");
 
     pic_unmask_irq(0);

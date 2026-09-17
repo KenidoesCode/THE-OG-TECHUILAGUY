@@ -3,11 +3,10 @@
 A from-first-principles operating-system prototype inside THE OG TECHUILAGUY.
 
 **Status: PROTOTYPE.** Boots under QEMU and passes automated tests that
-assert on real serial console output, real paging-enforced memory
+assert on real serial console output, real per-process address-space
 isolation, real ring-3 privilege enforcement, and real injected PS/2
 input — not just that the kernel prints a banner. Not a production OS:
-one shared identity-mapped address space (no per-process address
-spaces yet), no storage or network drivers, no filesystem, no
+no kernel heap, no storage or network drivers, no filesystem, no
 networking.
 
 ## Implemented and tested
@@ -52,8 +51,10 @@ networking.
   correct the instant it takes any interrupt, timer tick, or syscall.
   `scheduler_create_user_task` builds a task from a real flat
   machine-code image (see `userland/`) copied into an allocated
-  physical page (identity-mapped; no paging yet), running at CPL 3 with
-  its own separate user-mode stack page. `int $0x80` (a dedicated
+  physical page, running at CPL 3 with its own separate user-mode stack
+  page (see the paging entry below for how that page's virtual address
+  became genuinely private to the task once paging gained per-process
+  address spaces). `int $0x80` (a dedicated
   DPL-3 IDT gate — every other gate is DPL 0, so only this one can be
   invoked directly from ring 3) reaches a real syscall dispatcher
   (`syscalls/syscalls.cpp`: SYS_WRITE, SYS_YIELD, SYS_EXIT implemented;
@@ -72,32 +73,47 @@ networking.
   fault never ran, that it printed `[FAULT] ... killed by exception 13`
   rather than halting the kernel, and that the rest of the system
   (timer ticks, the other scheduler tasks) kept running afterward.
-- **real paging-based memory isolation**: `paging/` builds a 32-bit
-  (non-PAE) identity-mapped page directory/table set (16 MiB, matching
-  the physical allocator's range) and enables paging (`CR0.PG`).
-  Every page starts supervisor-only; `scheduler_create_user_task`
-  grants user access to exactly the two pages (code, stack) it
-  allocates for that task via `paging_set_user_accessible`, and
-  revokes it (`paging_set_supervisor_only`) before a freed page returns
-  to the general allocator, so a stale user-accessible mapping can
-  never persist onto whatever the page is reused for next. This is
-  distinct from — and a stronger guarantee than — the instruction-level
-  privilege isolation above: without it, a flat 0..4 GiB segment limit
-  gave ring-3 code full read/write access to *all* physical memory,
-  including the kernel's own code and data, as long as it avoided
-  privileged instructions. `tests/boot_test.sh` verifies this against
-  real boot behavior: a third ring-3 program (`userland/kernel_peek.S`)
-  directly reads the kernel's own load address (1 MiB), which it was
-  never granted access to, and the test confirms that read faults with
-  #PF (14), the program is killed exactly like the privileged-
-  instruction case, and the kernel and every other task keep running.
+- **real paging with genuine per-process address spaces**: `paging/`
+  builds a shared, 32-bit (non-PAE) identity-mapped kernel region (16
+  MiB, matching the physical allocator's range, supervisor-only) and
+  enables paging (`CR0.PG`). On top of that shared base, every user
+  task created by `scheduler_create_user_task` gets its **own page
+  directory** (`paging_create_address_space`) and its **own private
+  page table** for a fixed virtual region (`USER_CODE_VADDR` /
+  `USER_STACK_PAGE_VADDR`, identical addresses for every task) mapping
+  that task's own physical code/stack pages there — `paging_map_user_page`
+  allocates a dedicated table for this the first time it's needed, never
+  the shared kernel one. The scheduler's `switchTo` loads the running
+  task's own address space (`paging_switch_address_space`, i.e. `CR3`)
+  on every context switch, alongside the existing TSS `esp0` update. No
+  other task's directory has any translation for this task's private
+  virtual region at all — this is what makes one process structurally
+  unable to reach another's memory, not merely permission-denied from
+  it, and is a strictly stronger guarantee than a single shared
+  directory with per-page permission bits (the design this replaced):
+  without separate address spaces, a flat 0..4 GiB segment limit gave
+  ring-3 code full read/write access to *all* physical memory as long
+  as it avoided privileged instructions, and even with a shared
+  directory's permission bits, any process could in principle reach
+  any other's granted pages by guessing their physical addresses.
+  Terminating a slot's previous occupant (`reclaimSlot`, run before
+  reusing a task-table slot) tears down its private address space and
+  frees its pages before the slot is handed to a new task, and a
+  recycled stack page is explicitly zeroed so no process ever observes
+  another's leftover stack contents.
+  `tests/boot_test.sh` verifies this against real boot behavior with
+  three distinct ring-3 programs: `userland/kernel_peek.S` reads the
+  kernel's own load address (1 MiB, in the *shared* region, never
+  granted to user code) and must fault with #PF; `userland/neighbor_peek.S`
+  reads one page past its own granted 2-page private region — a virtual
+  address that is never mapped in *any* task's own address space — and
+  must also fault with #PF; both are confirmed to be killed in
+  isolation, with their own code after the fault never executing, and
+  the kernel and every other task (including the ongoing scheduler
+  lifecycle test and the timer) confirmed to keep running afterward.
 
 ## Not yet implemented
 
-- per-process address spaces (paging is currently one identity-mapped
-  page directory shared by everything; every task sees the same
-  address layout, just with different per-page permissions — not
-  separate virtual address spaces)
 - a kernel heap (`malloc`-style allocation on top of the physical page
   allocator)
 - more than one userland program's worth of syscalls (no exec, no

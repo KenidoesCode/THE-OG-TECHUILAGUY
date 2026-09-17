@@ -9,7 +9,7 @@
 
 namespace {
 
-constexpr int MAX_TASKS = 8;
+constexpr int MAX_TASKS = 10;
 constexpr uint32_t STACK_WORDS = 1024;  // 4 KiB per task stack.
 constexpr uint32_t PAGE_SIZE = 4096;
 
@@ -28,6 +28,14 @@ struct Task {
     bool isUser;
     uintptr_t userCodePage;   // 0 for kernel-mode tasks.
     uintptr_t userStackPage;  // 0 for kernel-mode tasks.
+
+    // CR3 value for this task: the shared kernel base address space
+    // for a kernel-mode task, or this task's own private address space
+    // (see paging_create_address_space) for a user-mode one. Real
+    // per-process isolation: another task's directory simply has no
+    // translation for this task's private virtual region at all, not
+    // merely a permission bit denying it.
+    uint32_t addressSpace;
 
     // This task's own kernel-mode stack. For a kernel task, it runs on
     // this stack directly. For a user task, it never runs on this
@@ -151,7 +159,33 @@ uint32_t switchTo(int nextIndex) {
     // setting it unconditionally is simpler and harmless.
     tss_set_kernel_stack(kernelStackTop(tasks[nextIndex]));
 
+    // Likewise, the address space must be switched *before* resuming
+    // this task — its own private virtual mappings (or lack of any,
+    // for a kernel task) only exist once its own CR3 is loaded.
+    paging_switch_address_space(tasks[nextIndex].addressSpace);
+
     return tasks[nextIndex].savedEsp;
+}
+
+// If the slot being reused previously held a user task, tears down
+// its private address space and frees its code/stack pages — reused
+// by both scheduler_create_task and scheduler_create_user_task so a
+// kernel-mode task can safely reuse a slot a user-mode task died in,
+// and vice versa, without leaking either.
+void reclaimSlot(int slot) {
+    if (tasks[slot].userCodePage != 0) {
+        memory_free_page(tasks[slot].userCodePage);
+        tasks[slot].userCodePage = 0;
+    }
+    if (tasks[slot].userStackPage != 0) {
+        memory_free_page(tasks[slot].userStackPage);
+        tasks[slot].userStackPage = 0;
+    }
+    if (tasks[slot].isUser && tasks[slot].addressSpace != 0) {
+        paging_destroy_address_space(tasks[slot].addressSpace);
+    }
+    tasks[slot].isUser = false;
+    tasks[slot].addressSpace = paging_kernel_address_space();
 }
 
 int indexForPid(uint32_t pid) {
@@ -176,6 +210,7 @@ extern "C" void scheduler_init() {
         t.isUser = false;
         t.userCodePage = 0;
         t.userStackPage = 0;
+        t.addressSpace = paging_kernel_address_space();
     }
 
     tasks[0].pid = nextPid++;
@@ -189,6 +224,8 @@ int scheduler_create_task(TaskEntry entry) {
     int slot = findSlot(ProcessState::Unused);
     if (slot < 0) slot = findSlot(ProcessState::Dead);
     if (slot < 0) return -1;
+
+    reclaimSlot(slot);
 
     uint32_t pid = nextPid++;
 
@@ -219,33 +256,46 @@ int scheduler_create_user_task(const uint8_t* code, uint32_t codeLen) {
         return -1;
     }
 
-    // Identity-mapped (no paging yet), so the physical page address
-    // doubles as both where the code lives and where it executes from.
+    uint32_t addressSpace = paging_create_address_space();
+    if (addressSpace == 0) {
+        memory_free_page(codePage);
+        memory_free_page(stackPage);
+        return -1;
+    }
+
+    // A recycled physical page can carry a previous task's leftover
+    // bytes (its old code, or whatever it last wrote to its stack).
+    // With per-process address spaces, no *mapping* of that page can
+    // possibly survive into this task (its own address space is
+    // brand new, and the old task's was destroyed by the reclaimSlot
+    // call below or by a prior call to this function) — but the raw
+    // physical bytes are still whatever was last written there, so
+    // zero the stack page explicitly rather than leaving stale
+    // contents another process's data happened to leave behind.
+    uint8_t* stackBytes = reinterpret_cast<uint8_t*>(stackPage);
+    for (uint32_t i = 0; i < PAGE_SIZE; ++i) {
+        stackBytes[i] = 0;
+    }
+
     uint8_t* dst = reinterpret_cast<uint8_t*>(codePage);
     for (uint32_t i = 0; i < codeLen; ++i) {
         dst[i] = code[i];
     }
-
-    // If a previous occupant of this slot leaked pages, free them now
-    // rather than losing the reference. Revoke user access first: once
-    // a page returns to the general allocator it may be reused for
-    // anything, kernel-owned included, and a stale user-accessible
-    // mapping must never survive that.
-    if (tasks[slot].userCodePage != 0) {
-        paging_set_supervisor_only(tasks[slot].userCodePage);
-        memory_free_page(tasks[slot].userCodePage);
-    }
-    if (tasks[slot].userStackPage != 0) {
-        paging_set_supervisor_only(tasks[slot].userStackPage);
-        memory_free_page(tasks[slot].userStackPage);
+    for (uint32_t i = codeLen; i < PAGE_SIZE; ++i) {
+        dst[i] = 0;
     }
 
-    // Grant user access to exactly these two pages — nothing else.
-    // Every other page in the system (kernel code/data/bss, every
-    // other task's pages) stays supervisor-only, so this task's code
-    // faults with #PF the instant it touches anything else.
-    paging_set_user_accessible(codePage);
-    paging_set_user_accessible(stackPage);
+    if (!paging_map_user_page(addressSpace, USER_CODE_VADDR, static_cast<uint32_t>(codePage)) ||
+        !paging_map_user_page(addressSpace, USER_STACK_PAGE_VADDR, static_cast<uint32_t>(stackPage))) {
+        paging_destroy_address_space(addressSpace);
+        memory_free_page(codePage);
+        memory_free_page(stackPage);
+        return -1;
+    }
+
+    // If a previous occupant of this slot leaked pages or an address
+    // space, reclaim them now rather than losing the reference.
+    reclaimSlot(slot);
 
     uint32_t pid = nextPid++;
 
@@ -254,8 +304,13 @@ int scheduler_create_user_task(const uint8_t* code, uint32_t codeLen) {
     tasks[slot].isUser = true;
     tasks[slot].userCodePage = codePage;
     tasks[slot].userStackPage = stackPage;
+    tasks[slot].addressSpace = addressSpace;
 
-    prepareUserInitialFrame(tasks[slot], codePage, stackPage + PAGE_SIZE);
+    // Every user task runs at the same fixed virtual addresses — what
+    // makes this task's memory its own is that only *its* address
+    // space's tables translate USER_CODE_VADDR/USER_STACK_PAGE_VADDR
+    // to codePage/stackPage at all.
+    prepareUserInitialFrame(tasks[slot], USER_CODE_VADDR, USER_STACK_TOP_VADDR);
 
     return static_cast<int>(pid);
 }

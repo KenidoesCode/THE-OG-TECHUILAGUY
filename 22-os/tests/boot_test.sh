@@ -107,6 +107,27 @@ else
     echo "[PASS] boot: code after the kernel-memory read never ran — paging isolation is real, not merely instruction-level"
 fi
 
+# --- Real per-process address spaces (distinct from the shared-
+# directory permission-bit isolation above): every user task now gets
+# its own page directory and its own private page table for a fixed
+# virtual region, switched via CR3 on every context switch.
+# "neighbor_peek" reads one page past its own granted 2-page region, at
+# a virtual address that is never mapped for *any* task — proving a
+# task cannot reach memory beyond what its own address space explicitly
+# maps, not merely memory it lacks permission for within a shared one.
+check "^N" \
+    "the fourth ring-3 task reached the kernel via SYS_WRITE before reading past its own private region"
+
+check "\[FAULT\] ring-3 task killed by exception 14" \
+    "reading an address never mapped in any task's private region faults with #PF and the task is killed"
+
+if grep -q "^Z\$" "$LOG"; then
+    echo "[FAIL] boot: ring-3 code after the out-of-region read ran — per-process address-space isolation did not actually block it"
+    FAIL=1
+else
+    echo "[PASS] boot: code after the out-of-region read never ran — per-process address-space isolation is real"
+fi
+
 check "task A exited after 5 run(s)" \
     "a task actually ran, hit its exit condition, and called scheduler_exit"
 
