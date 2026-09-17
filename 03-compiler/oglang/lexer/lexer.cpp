@@ -98,6 +98,8 @@ std::vector<Token> Lexer::tokenize() {
                 kind = TokenKind::Enum;
             else if (text == "import")
                 kind = TokenKind::Import;
+            else if (text == "asm")
+                kind = TokenKind::Asm;
             else if (text == "if")
                 kind = TokenKind::If;
             else if (text == "else")
@@ -115,6 +117,50 @@ std::vector<Token> Lexer::tokenize() {
 
             tokens.push_back({
                 kind,
+                text,
+                tokenLine,
+                tokenColumn
+            });
+
+            continue;
+        }
+
+        if (c == '"') {
+            // A string literal exists in this language solely to carry
+            // an inline-asm template (asm("...")) — there is no
+            // OGLang-level string type, so this is never usable as an
+            // ordinary value. Only \" and \\ are recognized escapes;
+            // an unterminated literal is a lex error rather than
+            // silently consuming the rest of the file.
+            advance();
+
+            std::string text;
+            bool terminated = false;
+
+            while (peek() != '\0') {
+                char ch = advance();
+
+                if (ch == '"') {
+                    terminated = true;
+                    break;
+                }
+
+                if (ch == '\\' && (peek() == '"' || peek() == '\\')) {
+                    text += advance();
+                    continue;
+                }
+
+                text += ch;
+            }
+
+            if (!terminated) {
+                throw std::runtime_error(
+                    "Unterminated string literal"
+                );
+            }
+
+            tokens.push_back({
+                TokenKind::StringLiteral,
                 text,
                 tokenLine,
                 tokenColumn

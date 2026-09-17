@@ -35,6 +35,22 @@ for the full design and its explicitly-scoped limits.
   selective/partial imports, visibility control, module aliasing, and
   import cycles (rejected outright, not supported).
 
+## Inline assembly (implemented, v1)
+
+Real, tested, but deliberately narrow — see
+[`../../docs/ADR/0003-oglang-inline-asm.md`](../../docs/ADR/0003-oglang-inline-asm.md).
+
+- `asm("template")` emits the template text verbatim into the
+  generated assembly; the expression's value is whatever ends up in
+  `%eax` afterward.
+- No operand binding: no way to pass an OGLang value in, exactly one
+  implicit output (`%eax`).
+- Any other live value is saved/restored around the asm block (the
+  same mechanism `Call` uses for a callee it can't inspect).
+- `volatile` and atomics are explicitly NOT implemented: the optimizer
+  performs no reordering or elimination of any kind today, so either
+  keyword would be vacuous syntax rather than a real guarantee.
+
 ## Primitive Types
 
 bool

@@ -746,6 +746,17 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         return expression;
     }
 
+    if (match(TokenKind::Asm)) {
+        expect(TokenKind::LParen);
+
+        std::string templateText =
+            expect(TokenKind::StringLiteral).text;
+
+        expect(TokenKind::RParen);
+
+        return std::make_unique<AsmExpr>(templateText);
+    }
+
     throw std::runtime_error(
         "Expected expression: " + peek().text
     );

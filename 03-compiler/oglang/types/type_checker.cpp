@@ -158,6 +158,15 @@ public:
             return it->second.first;
         }
 
+        if (dynamic_cast<const AsmExpr*>(&expr)) {
+            // v1's inline-asm boundary always yields an i32 taken from
+            // a fixed register (%eax) after the raw template runs —
+            // see docs/ADR/0003-oglang-inline-asm.md. There is nothing
+            // to validate about the template text itself; it is
+            // opaque to the type checker by design.
+            return "i32";
+        }
+
         if (auto* call = dynamic_cast<const CallExpr*>(&expr)) {
             auto it = signatures.find(call->callee);
 

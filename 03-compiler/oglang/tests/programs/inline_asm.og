@@ -1,0 +1,14 @@
+// v1's inline-asm boundary: no operand binding, a fixed-register
+// (%eax) result read into an OGLang value. Exercised alongside real
+// register pressure (several live i32 locals) to prove the asm block
+// doesn't corrupt values the register allocator is keeping live
+// across it.
+fn main() -> i32 {
+    let a: i32 = 10;
+    let b: i32 = 20;
+    let c: i32 = 30;
+
+    let asmResult: i32 = asm("movl $5, %eax");
+
+    return a + b + c + asmResult;
+}

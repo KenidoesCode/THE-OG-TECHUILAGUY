@@ -618,6 +618,40 @@ std::string X86Codegen::generate(
                 break;
             }
 
+            case OpCode::InlineAsmI32: {
+                // Treated exactly like Call for register preservation:
+                // arbitrary raw assembly could clobber anything, so
+                // every pool-register value live across it is saved
+                // and restored, the same conservative rule Call
+                // already uses rather than trying to parse the
+                // template to figure out what it actually touches.
+                auto saved = liveAcross(i, inst.destination);
+
+                for (auto& [value, physReg] : saved) {
+                    (void)value;
+                    out << "    pushq %" << to64(physReg) << "\n";
+                }
+
+                out << "    " << inst.label << "\n";
+
+                std::string destLoc = writeTarget(inst.destination, "ebx");
+                if (destLoc != "%eax") {
+                    out << "    movl %eax, " << destLoc << "\n";
+                }
+                storeIfSpilled(inst.destination, "ebx");
+
+                for (auto it = saved.rbegin(); it != saved.rend(); ++it) {
+                    if (!isSpilled(inst.destination) &&
+                        destLoc == "%" + it->second) {
+                        out << "    addq $8, %rsp\n";
+                    } else {
+                        out << "    popq %" << to64(it->second) << "\n";
+                    }
+                }
+
+                break;
+            }
+
             case OpCode::BoundsCheckI32: {
                 // Unsigned comparison: index >= size catches both a
                 // too-large index and a negative one (which, read as

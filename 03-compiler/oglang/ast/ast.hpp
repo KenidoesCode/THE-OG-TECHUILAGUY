@@ -88,6 +88,16 @@ struct FieldAccessExpr : Expr {
           fieldName(std::move(fieldName)) {}
 };
 
+// asm("template") — the inline-assembly boundary. v1 is deliberately
+// narrow: no OGLang-level operand binding at all, a fixed-register
+// (%eax) result. See docs/ADR/0003-oglang-inline-asm.md.
+struct AsmExpr : Expr {
+    std::string templateText;
+
+    explicit AsmExpr(std::string templateText)
+        : templateText(std::move(templateText)) {}
+};
+
 struct CallExpr : Expr {
     std::string callee;
     std::vector<std::unique_ptr<Expr>> args;

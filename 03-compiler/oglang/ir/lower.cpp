@@ -496,6 +496,16 @@ ValueId IRLowerer::lowerExpr(
         return dst;
     }
 
+    if (auto* asmExpr = dynamic_cast<const AsmExpr*>(&expr)) {
+        ValueId dst = nextValue++;
+
+        ir.instructions.push_back({
+            OpCode::InlineAsmI32, dst, -1, -1, 0, {}, asmExpr->templateText
+        });
+
+        return dst;
+    }
+
     if (auto* call = dynamic_cast<const CallExpr*>(&expr)) {
         std::vector<ValueId> argValues;
 

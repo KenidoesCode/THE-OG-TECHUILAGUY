@@ -74,7 +74,20 @@ enum class OpCode {
     Jump,
     JumpIfZero,
 
-    ReturnI32
+    ReturnI32,
+
+    // destination = raw inline assembly. `label` carries the verbatim
+    // template text (a string literal from the source), emitted
+    // directly into the generated assembly with no OGLang-level
+    // operand binding — v1's inline-asm boundary is deliberately this
+    // narrow: no inputs, a single fixed-register output (%eax, read
+    // into `destination` after the template runs, the same convention
+    // Call already uses for a function's return value). Treated by
+    // codegen exactly like Call for register preservation purposes:
+    // any pool-register value live across it is saved/restored, since
+    // arbitrary raw assembly could clobber anything. See
+    // docs/ADR/0003-oglang-inline-asm.md.
+    InlineAsmI32
 };
 
 struct IRInstruction {

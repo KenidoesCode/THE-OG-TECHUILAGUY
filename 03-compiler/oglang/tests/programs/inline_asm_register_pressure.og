@@ -1,0 +1,20 @@
+// Forces more live values than the register pool holds (see
+// codegen/register_allocator.cpp's Chaitin-style spilling) across an
+// inline-asm block, so both spilled AND register-allocated live
+// values must survive it — this is the actual test for
+// InlineAsmI32's save/restore codegen (mirrors Call's identical
+// mechanism), not just that asm() parses and runs.
+fn main() -> i32 {
+    let a: i32 = 1;
+    let b: i32 = 2;
+    let c: i32 = 3;
+    let d: i32 = 4;
+    let e: i32 = 5;
+    let f: i32 = 6;
+    let g: i32 = 7;
+    let h: i32 = 8;
+
+    let asmResult: i32 = asm("movl $100, %eax");
+
+    return a + b + c + d + e + f + g + h + asmResult;
+}

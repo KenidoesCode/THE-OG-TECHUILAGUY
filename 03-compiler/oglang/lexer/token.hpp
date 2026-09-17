@@ -9,6 +9,7 @@ enum class TokenKind {
     Struct,
     Enum,
     Import,
+    Asm,
 
     TypeI32,
     TypePtr,
@@ -16,6 +17,7 @@ enum class TokenKind {
 
     Identifier,
     Integer,
+    StringLiteral,
 
     Arrow,
 

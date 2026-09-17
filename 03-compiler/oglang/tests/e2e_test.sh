@@ -109,6 +109,12 @@ check "out-of-range array index traps (exit 101) instead of reading past the arr
 check "negative array index traps (exit 101) via the same unsigned bounds check" \
     "tests/programs/array_negative_index.og" 101
 
+check "inline asm: a fixed-register (%eax) result is read correctly alongside other live locals" \
+    "tests/programs/inline_asm.og" 65
+
+check "inline asm under register pressure: spilled and register-allocated values both survive it" \
+    "tests/programs/inline_asm_register_pressure.og" 136
+
 # --- Multi-file modules ---
 #
 # One source file is one module, named after its filename (without

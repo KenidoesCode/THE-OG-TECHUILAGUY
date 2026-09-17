@@ -1131,6 +1131,94 @@ void testTypeCheckerRejectsUnresolvedImportInSingleFileProgram() {
     );
 }
 
+void testLexerTokenizesStringLiteral() {
+    Lexer lexer("asm(\"movl $1, %eax\")");
+    auto tokens = lexer.tokenize();
+
+    check(tokens[0].kind == TokenKind::Asm, "lexer: 'asm' is a keyword");
+    check(tokens[2].kind == TokenKind::StringLiteral,
+          "lexer: a double-quoted literal is tokenized as StringLiteral");
+    check(tokens[2].text == "movl $1, %eax",
+          "lexer: the string literal's text excludes the surrounding quotes");
+}
+
+void testLexerRejectsUnterminatedStringLiteral() {
+    bool threw = false;
+    try {
+        Lexer lexer("asm(\"movl $1, %eax");
+        lexer.tokenize();
+    } catch (const std::exception&) {
+        threw = true;
+    }
+
+    check(threw, "lexer: an unterminated string literal is a lex error");
+}
+
+void testParserParsesAsmExpr() {
+    Program program = parseProgram(
+        "fn main() -> i32 { "
+        "  let x: i32 = asm(\"movl $42, %eax\"); "
+        "  return x; "
+        "}"
+    );
+
+    auto* letX = dynamic_cast<LetStmt*>(program[0].body[0].get());
+    auto* asmExpr = letX != nullptr
+        ? dynamic_cast<AsmExpr*>(letX->initializer.get())
+        : nullptr;
+    check(asmExpr != nullptr, "parser: 'asm(\"...\")' parses as AsmExpr");
+    check(asmExpr != nullptr && asmExpr->templateText == "movl $42, %eax",
+          "parser: AsmExpr records the template text verbatim");
+}
+
+void testTypeCheckerTreatsAsmExprAsI32() {
+    try {
+        Program program = parseProgram(
+            "fn main() -> i32 { "
+            "  let x: i32 = asm(\"movl $1, %eax\"); "
+            "  return x + 1; "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true,
+              "type checker: an asm() expression has type i32 and "
+              "composes with ordinary arithmetic");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: an asm() expression has type i32 and "
+                  "composes with ordinary arithmetic (threw: ") +
+                  e.what() + ")");
+    }
+}
+
+void testAsmCodegenEmitsTemplateVerbatimAndPreservesLiveValues() {
+    std::string assembly = compileToAssembly(
+        "fn main() -> i32 { "
+        "  let a: i32 = 1; "
+        "  let b: i32 = 2; "
+        "  let x: i32 = asm(\"movl $9, %eax\"); "
+        "  return a + b + x; "
+        "}"
+    );
+
+    check(assembly.find("movl $9, %eax") != std::string::npos,
+          "codegen: the asm template text is emitted verbatim into the "
+          "generated assembly");
+
+    // A value still needed after the asm block (a or b, whichever the
+    // allocator kept in a register) must be saved/restored around it —
+    // the same pushq/popq pattern Call already uses — since arbitrary
+    // raw assembly could otherwise silently clobber it.
+    check(assembly.find("pushq") != std::string::npos &&
+          assembly.find("popq") != std::string::npos,
+          "codegen: a live-across-asm register value is saved and "
+          "restored around the inline-asm block");
+}
+
 void testTypeCheckerRejectsDereferenceOfNonPointer() {
     expectProgramThrows(
         "type checker: rejects dereferencing a plain i32 value",
@@ -1416,6 +1504,11 @@ int main() {
     testCheckModuleRejectsWhenNonEntryModuleLacksMain();
     testCollectModuleSymbolsRejectsDuplicateFunctionInOneModule();
     testTypeCheckerRejectsUnresolvedImportInSingleFileProgram();
+    testLexerTokenizesStringLiteral();
+    testLexerRejectsUnterminatedStringLiteral();
+    testParserParsesAsmExpr();
+    testTypeCheckerTreatsAsmExprAsI32();
+    testAsmCodegenEmitsTemplateVerbatimAndPreservesLiveValues();
     testTypeCheckerRejectsDereferenceOfNonPointer();
     testTypeCheckerRejectsAddressOfUndeclaredVariable();
     testTypeCheckerRejectsStoreThroughNonPointer();
