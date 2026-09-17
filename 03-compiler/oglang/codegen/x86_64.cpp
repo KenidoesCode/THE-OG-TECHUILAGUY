@@ -288,6 +288,70 @@ std::string X86Codegen::generate(
                 break;
             }
 
+            // Pointers are addresses, and this target is x86-64: they
+            // are 64-bit values even though every other OGLang value is
+            // 32-bit. A stack address (which is what AddressOfI32
+            // always produces here, since address-taken variables are
+            // forced into a stack slot) routinely lives well above the
+            // 4 GiB boundary on a real 64-bit process, so computing or
+            // spilling one through a 32-bit register/slot silently
+            // truncates it into a bogus address — this was a real bug
+            // caught by the very first pointer-aliasing test written
+            // against this feature (immediate segfault), not by
+            // inspection. Pointer-valued operands are therefore always
+            // handled through their full 64-bit register form (leaq,
+            // movq for spilling) here, distinct from the 32-bit
+            // load/writeTarget/storeIfSpilled helpers everything else
+            // uses.
+            case OpCode::AddressOfI32: {
+                bool spilled = isSpilled(inst.destination);
+                std::string destReg64 =
+                    spilled ? "rbx" : to64(allocation.registers.at(inst.destination));
+
+                out << "    leaq " << spillAddress(inst.left)
+                    << ", %" << destReg64 << "\n";
+
+                if (spilled) {
+                    out << "    movq %rbx, " << spillAddress(inst.destination) << "\n";
+                }
+                break;
+            }
+
+            case OpCode::LoadI32: {
+                std::string pointerReg64;
+                if (isSpilled(inst.left)) {
+                    out << "    movq " << spillAddress(inst.left) << ", %rbx\n";
+                    pointerReg64 = "rbx";
+                } else {
+                    pointerReg64 = to64(allocation.registers.at(inst.left));
+                }
+
+                std::string destLoc = writeTarget(inst.destination, "r8d");
+
+                out << "    movl (%" << pointerReg64 << "), "
+                    << destLoc << "\n";
+
+                storeIfSpilled(inst.destination, "r8d");
+                break;
+            }
+
+            case OpCode::StoreI32: {
+                std::string pointerReg64;
+                if (isSpilled(inst.left)) {
+                    out << "    movq " << spillAddress(inst.left) << ", %rbx\n";
+                    pointerReg64 = "rbx";
+                } else {
+                    pointerReg64 = to64(allocation.registers.at(inst.left));
+                }
+
+                std::string valueLoc = loadRead(inst.right, "edi");
+
+                out << "    movl " << valueLoc << ", (%"
+                    << pointerReg64 << ")\n";
+
+                break;
+            }
+
             case OpCode::DivI32: {
                 // idivl requires the dividend sign-extended across
                 // edx:eax and forbids eax/edx as the divisor operand.

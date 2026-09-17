@@ -52,6 +52,13 @@ Program Parser::parseProgram() {
     return program;
 }
 
+std::string Parser::parseType() {
+    if (match(TokenKind::TypeI32)) return "i32";
+    if (match(TokenKind::TypePtr)) return "ptr";
+
+    throw std::runtime_error("Expected type");
+}
+
 std::vector<Param> Parser::parseParamList() {
     std::vector<Param> params;
 
@@ -64,14 +71,7 @@ std::vector<Param> Parser::parseParamList() {
 
             expect(TokenKind::Colon);
 
-            std::string type;
-
-            if (match(TokenKind::TypeI32))
-                type = "i32";
-            else
-                throw std::runtime_error(
-                    "Expected parameter type"
-                );
+            std::string type = parseType();
 
             params.push_back({name, type});
 
@@ -118,14 +118,7 @@ Function Parser::parseFunction() {
 
     expect(TokenKind::Arrow);
 
-    std::string returnType;
-
-    if (match(TokenKind::TypeI32))
-        returnType = "i32";
-    else
-        throw std::runtime_error(
-            "Expected return type"
-        );
+    std::string returnType = parseType();
 
     expect(TokenKind::LBrace);
 
@@ -153,14 +146,7 @@ std::unique_ptr<Statement> Parser::parseStatement() {
 
         expect(TokenKind::Colon);
 
-        std::string type;
-
-        if (match(TokenKind::TypeI32))
-            type = "i32";
-        else
-            throw std::runtime_error(
-                "Expected variable type"
-            );
+        std::string type = parseType();
 
         expect(TokenKind::Equal);
 
@@ -198,8 +184,28 @@ std::unique_ptr<Statement> Parser::parseStatement() {
         peekNext().kind == TokenKind::Equal)
         return parseAssign();
 
+    if (peek().kind == TokenKind::Star)
+        return parseStore();
+
     throw std::runtime_error(
         "Unknown statement: " + peek().text
+    );
+}
+
+std::unique_ptr<Statement> Parser::parseStore() {
+    expect(TokenKind::Star);
+
+    auto pointer = parseUnary();
+
+    expect(TokenKind::Equal);
+
+    auto value = parseExpression();
+
+    expect(TokenKind::Semicolon);
+
+    return std::make_unique<StoreStmt>(
+        std::move(pointer),
+        std::move(value)
     );
 }
 
@@ -467,6 +473,20 @@ std::unique_ptr<Expr> Parser::parseUnary() {
 
         return std::make_unique<UnaryExpr>(
             '-',
+            std::move(operand)
+        );
+    }
+
+    if (match(TokenKind::Ampersand)) {
+        std::string name = expect(TokenKind::Identifier).text;
+
+        return std::make_unique<AddressOfExpr>(name);
+    }
+
+    if (match(TokenKind::Star)) {
+        auto operand = parseUnary();
+
+        return std::make_unique<DerefExpr>(
             std::move(operand)
         );
     }

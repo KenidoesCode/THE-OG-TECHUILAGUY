@@ -45,6 +45,31 @@ public:
             return "i32";
         }
 
+        if (auto* addressOf =
+                dynamic_cast<const AddressOfExpr*>(&expr)) {
+
+            if (!variables.contains(addressOf->name)) {
+                throw std::runtime_error(
+                    "Cannot take the address of undeclared variable: " +
+                    addressOf->name
+                );
+            }
+
+            return "ptr";
+        }
+
+        if (auto* deref = dynamic_cast<const DerefExpr*>(&expr)) {
+            std::string pointerType = checkExpr(*deref->pointer);
+
+            if (pointerType != "ptr") {
+                throw std::runtime_error(
+                    "Cannot dereference a non-pointer value"
+                );
+            }
+
+            return "i32";
+        }
+
         if (auto* call = dynamic_cast<const CallExpr*>(&expr)) {
             auto it = signatures.find(call->callee);
 
@@ -163,6 +188,28 @@ public:
                 throw std::runtime_error(
                     "Type mismatch assigning to variable: " +
                     assignStmt->name
+                );
+            }
+
+            return;
+        }
+
+        if (auto* storeStmt =
+                dynamic_cast<const StoreStmt*>(&statement)) {
+
+            std::string pointerType = checkExpr(*storeStmt->pointer);
+
+            if (pointerType != "ptr") {
+                throw std::runtime_error(
+                    "Cannot store through a non-pointer value"
+                );
+            }
+
+            std::string valueType = checkExpr(*storeStmt->value);
+
+            if (valueType != "i32") {
+                throw std::runtime_error(
+                    "Cannot store a non-i32 value through a pointer"
                 );
             }
 

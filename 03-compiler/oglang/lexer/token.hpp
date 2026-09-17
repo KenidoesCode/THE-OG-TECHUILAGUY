@@ -8,6 +8,7 @@ enum class TokenKind {
     Let,
 
     TypeI32,
+    TypePtr,
 
     Identifier,
     Integer,
@@ -28,6 +29,7 @@ enum class TokenKind {
     Minus,
     Star,
     Slash,
+    Ampersand,
 
     Greater,
     Less,

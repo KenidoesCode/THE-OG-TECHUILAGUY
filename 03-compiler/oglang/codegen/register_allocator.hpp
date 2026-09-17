@@ -3,6 +3,7 @@
 #include "../analysis/interference.hpp"
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 // Values that fit in a physical register get one; anything left over is
 // assigned a stack slot instead of causing allocation to fail outright.
@@ -23,5 +24,16 @@ public:
     // reverse simplify order; a potential spill only becomes an actual
     // one (a stack slot instead of a register) if, once its neighbors
     // are colored, no register is actually free for it.
-    RegisterAllocation allocate(const InterferenceGraph& graph);
+    //
+    // `forcedSpills` are values that must never land in a register
+    // regardless of what coloring would otherwise choose — namely,
+    // variables whose address was taken (AddressOfExpr), since only a
+    // stack slot has a stable address a pointer could actually hold.
+    // They're given a slot up front and removed from the graph before
+    // coloring runs, so they impose no register-color constraint on
+    // anything else either.
+    RegisterAllocation allocate(
+        const InterferenceGraph& graph,
+        const std::vector<ValueId>& forcedSpills = {}
+    );
 };

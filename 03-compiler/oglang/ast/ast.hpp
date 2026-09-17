@@ -45,6 +45,26 @@ struct UnaryExpr : Expr {
         : op(op), operand(std::move(operand)) {}
 };
 
+// &name — takes the address of a named local variable or parameter.
+// Restricted to a plain name (not an arbitrary expression) so it's
+// always statically clear which variable must be forced to live in a
+// stable memory location rather than a register — see IRLowerer's
+// addressTakenValues.
+struct AddressOfExpr : Expr {
+    std::string name;
+
+    explicit AddressOfExpr(std::string name)
+        : name(std::move(name)) {}
+};
+
+// *expr — reads the i32 value a `ptr` expression points to.
+struct DerefExpr : Expr {
+    std::unique_ptr<Expr> pointer;
+
+    explicit DerefExpr(std::unique_ptr<Expr> pointer)
+        : pointer(std::move(pointer)) {}
+};
+
 struct CallExpr : Expr {
     std::string callee;
     std::vector<std::unique_ptr<Expr>> args;
@@ -92,6 +112,19 @@ struct AssignStmt : Statement {
         std::unique_ptr<Expr> value
     )
         : name(std::move(name)),
+          value(std::move(value)) {}
+};
+
+// *pointer = value; — writes through a pointer.
+struct StoreStmt : Statement {
+    std::unique_ptr<Expr> pointer;
+    std::unique_ptr<Expr> value;
+
+    StoreStmt(
+        std::unique_ptr<Expr> pointer,
+        std::unique_ptr<Expr> value
+    )
+        : pointer(std::move(pointer)),
           value(std::move(value)) {}
 };
 

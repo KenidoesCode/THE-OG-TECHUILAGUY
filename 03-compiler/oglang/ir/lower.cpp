@@ -82,6 +82,23 @@ void IRLowerer::lowerStatement(
         return;
     }
 
+    if (auto* storeStmt = dynamic_cast<const StoreStmt*>(&statement)) {
+        ValueId pointer = lowerExpr(*storeStmt->pointer, ir);
+        ValueId value = lowerExpr(*storeStmt->value, ir);
+
+        ir.instructions.push_back({
+            OpCode::StoreI32,
+            -1,
+            pointer,
+            value,
+            0,
+            {},
+            ""
+        });
+
+        return;
+    }
+
     if (auto* whileStmt = dynamic_cast<const WhileStmt*>(&statement)) {
         std::string loopStart = freshLabel(".Lloop");
         std::string loopEnd = freshLabel(".Lloopend");
@@ -216,6 +233,38 @@ ValueId IRLowerer::lowerExpr(
         ValueId dst = nextValue++;
         ir.instructions.push_back({
             OpCode::SubI32, dst, zero, operand, 0, {}, ""
+        });
+
+        return dst;
+    }
+
+    if (auto* addressOf = dynamic_cast<const AddressOfExpr*>(&expr)) {
+        auto it = variables.find(addressOf->name);
+
+        if (it == variables.end()) {
+            throw std::runtime_error(
+                "Cannot take the address of unknown variable: " +
+                addressOf->name
+            );
+        }
+
+        ValueId variableValue = it->second;
+        ir.addressTakenValues.push_back(variableValue);
+
+        ValueId dst = nextValue++;
+        ir.instructions.push_back({
+            OpCode::AddressOfI32, dst, variableValue, -1, 0, {}, ""
+        });
+
+        return dst;
+    }
+
+    if (auto* deref = dynamic_cast<const DerefExpr*>(&expr)) {
+        ValueId pointer = lowerExpr(*deref->pointer, ir);
+
+        ValueId dst = nextValue++;
+        ir.instructions.push_back({
+            OpCode::LoadI32, dst, pointer, -1, 0, {}, ""
         });
 
         return dst;

@@ -79,7 +79,7 @@ std::string compileToAssembly(const std::string& source) {
         auto graph = interference.build(ranges);
 
         RegisterAllocator allocator;
-        auto allocation = allocator.allocate(graph);
+        auto allocation = allocator.allocate(graph, ir.addressTakenValues);
 
         assembly += codegen.generate(ir, allocation, ranges);
     }
@@ -405,6 +405,113 @@ void testStackArgumentCodegenForMoreThanFourParams() {
           "codegen: caller cleans up stack-passed arguments after the call");
 }
 
+void testParserParsesAddressOfAndDeref() {
+    Program program = parseProgram(
+        "fn main() -> i32 { "
+        "  let x: i32 = 1; "
+        "  let p: ptr = &x; "
+        "  let y: i32 = *p; "
+        "  return y; "
+        "}"
+    );
+
+    auto* letP = dynamic_cast<LetStmt*>(program[0].body[1].get());
+    check(letP != nullptr && letP->type == "ptr",
+          "parser: 'ptr' is accepted as a variable type");
+
+    auto* addressOf = letP != nullptr
+        ? dynamic_cast<AddressOfExpr*>(letP->initializer.get())
+        : nullptr;
+    check(addressOf != nullptr, "parser: '&x' parses as AddressOfExpr");
+    check(addressOf != nullptr && addressOf->name == "x",
+          "parser: address-of records the target variable name");
+
+    auto* letY = dynamic_cast<LetStmt*>(program[0].body[2].get());
+    auto* deref = letY != nullptr
+        ? dynamic_cast<DerefExpr*>(letY->initializer.get())
+        : nullptr;
+    check(deref != nullptr, "parser: '*p' parses as DerefExpr");
+}
+
+void testParserParsesStoreStatement() {
+    Program program = parseProgram(
+        "fn main() -> i32 { "
+        "  let x: i32 = 1; "
+        "  let p: ptr = &x; "
+        "  *p = 5; "
+        "  return x; "
+        "}"
+    );
+
+    auto* store = dynamic_cast<StoreStmt*>(program[0].body[2].get());
+    check(store != nullptr, "parser: '*p = 5;' parses as StoreStmt");
+}
+
+void testPointerCodegenUsesFullWidthAddressing() {
+    std::string assembly = compileToAssembly(
+        "fn main() -> i32 { "
+        "  let x: i32 = 1; "
+        "  let p: ptr = &x; "
+        "  *p = *p + 1; "
+        "  return x; "
+        "}"
+    );
+
+    // Pointers are 64-bit addresses even though every other OGLang
+    // value is 32-bit; a real stack address routinely lives above the
+    // 4 GiB boundary, so computing or dereferencing one through a
+    // 32-bit register/instruction would silently truncate it. This
+    // caught a real bug (immediate segfault) during development.
+    check(assembly.find("leaq") != std::string::npos,
+          "codegen: address-of uses 64-bit leaq, not 32-bit leal");
+    check(assembly.find("leal") == std::string::npos,
+          "codegen: never uses 32-bit leal for an address");
+}
+
+void testTypeCheckerRejectsDereferenceOfNonPointer() {
+    expectProgramThrows(
+        "type checker: rejects dereferencing a plain i32 value",
+        "fn main() -> i32 { let x: i32 = 1; return *x; }"
+    );
+}
+
+void testTypeCheckerRejectsAddressOfUndeclaredVariable() {
+    expectProgramThrows(
+        "type checker: rejects taking the address of an undeclared variable",
+        "fn main() -> i32 { let p: ptr = &nope; return 0; }"
+    );
+}
+
+void testTypeCheckerRejectsStoreThroughNonPointer() {
+    expectProgramThrows(
+        "type checker: rejects '*x = v;' when x is not a pointer",
+        "fn main() -> i32 { let x: i32 = 1; *x = 2; return x; }"
+    );
+}
+
+void testTypeCheckerAllowsPointerRoundTrip() {
+    try {
+        Program program = parseProgram(
+            "fn main() -> i32 { "
+            "  let x: i32 = 1; "
+            "  let p: ptr = &x; "
+            "  *p = *p + 1; "
+            "  return x; "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true, "type checker: accepts a well-typed pointer round trip");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: accepts a well-typed pointer round trip"
+                  " (threw: ") + e.what() + ")");
+    }
+}
+
 void testTypeCheckerRejectsUnknownVariable() {
     expectProgramThrows(
         "type checker: rejects reference to undefined variable",
@@ -501,6 +608,13 @@ int main() {
     testWhileCodegenEmitsBackEdge();
     testRegisterPressureForcesRealSpill();
     testStackArgumentCodegenForMoreThanFourParams();
+    testParserParsesAddressOfAndDeref();
+    testParserParsesStoreStatement();
+    testPointerCodegenUsesFullWidthAddressing();
+    testTypeCheckerRejectsDereferenceOfNonPointer();
+    testTypeCheckerRejectsAddressOfUndeclaredVariable();
+    testTypeCheckerRejectsStoreThroughNonPointer();
+    testTypeCheckerAllowsPointerRoundTrip();
     testTypeCheckerRejectsUnknownVariable();
     testTypeCheckerRejectsReturnTypeMismatch();
     testTypeCheckerRejectsUndefinedFunctionCall();

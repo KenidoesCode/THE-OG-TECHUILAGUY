@@ -1,0 +1,21 @@
+// Genuine pointer aliasing: mutating *p must be visible when x is read
+// by name afterward, because &x forces x into a real stack slot that p
+// actually points at — not a copy. This specifically caught a real bug
+// during development: pointers were being computed/spilled as 32-bit
+// values, silently truncating real 64-bit stack addresses (which live
+// well above 4 GiB in a normal process) into garbage.
+fn increment(p: ptr) -> i32 {
+    let old: i32 = *p;
+    *p = old + 1;
+    return old;
+}
+
+fn main() -> i32 {
+    let x: i32 = 41;
+    let addr: ptr = &x;
+    let result: i32 = increment(addr);
+
+    // `result` is the pre-increment value (41); `x`, read by name here,
+    // must reflect the mutation performed through the pointer (42).
+    return x - result;
+}

@@ -4,7 +4,8 @@
 #include <vector>
 
 RegisterAllocation RegisterAllocator::allocate(
-    const InterferenceGraph& graph
+    const InterferenceGraph& graph,
+    const std::vector<ValueId>& forcedSpills
 ) {
     const std::vector<std::string> registers = {
         "eax", "ecx", "edx", "esi"
@@ -18,6 +19,34 @@ RegisterAllocation RegisterAllocator::allocate(
     std::unordered_map<ValueId, std::unordered_set<ValueId>> working(
         graph.begin(), graph.end()
     );
+
+    auto removeFromWorking = [&](ValueId value) {
+        auto it = working.find(value);
+        if (it == working.end())
+            return;
+
+        for (ValueId neighbor : it->second) {
+            auto neighborIt = working.find(neighbor);
+            if (neighborIt != working.end()) {
+                neighborIt->second.erase(value);
+            }
+        }
+
+        working.erase(it);
+    };
+
+    // Values with a forced spill slot never enter coloring at all —
+    // giving them one up front and removing them from the graph means
+    // they impose no register-color constraint on anything else,
+    // exactly as if they had never needed a register in the first
+    // place.
+    for (ValueId value : forcedSpills) {
+        if (result.spillSlots.contains(value))
+            continue;
+
+        result.spillSlots[value] = result.spillSlotCount++;
+        removeFromWorking(value);
+    }
 
     struct StackEntry {
         ValueId value;

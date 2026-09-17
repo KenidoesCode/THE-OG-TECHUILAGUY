@@ -35,6 +35,21 @@ enum class OpCode {
     // destination = call(label, args...)
     Call,
 
+    // destination = address of `left` (a variable's own ValueId, not a
+    // register/temporary — see IRFunction::addressTakenValues). Only
+    // meaningful because the register allocator is told to force
+    // `left` into a stable stack slot rather than a register whenever
+    // it appears here; codegen then computes a real address (leal)
+    // into that slot.
+    AddressOfI32,
+
+    // destination = *left (left holds a pointer value).
+    LoadI32,
+
+    // *left = right. No destination: this instruction only writes
+    // memory, it doesn't produce a new value.
+    StoreI32,
+
     // No destination. `label` names the target of Jump/JumpIfZero,
     // or marks this position for one of them.
     Label,
@@ -63,4 +78,11 @@ struct IRFunction {
     std::string name;
     int paramCount = 0;
     std::vector<IRInstruction> instructions;
+
+    // ValueIds that had their address taken (via AddressOfExpr) at
+    // some point in this function. The register allocator must never
+    // put these in a physical register — only a stack slot has a
+    // stable address a pointer could actually hold — regardless of
+    // what graph coloring would otherwise choose for them.
+    std::vector<ValueId> addressTakenValues;
 };

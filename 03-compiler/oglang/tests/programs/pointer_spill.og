@@ -1,0 +1,19 @@
+// Forces both the address-taken variable AND the pointer value itself
+// to be spilled (8 concurrently-live locals, only 4 registers), to
+// exercise the harder path: a pointer whose own value lives in a
+// stack slot must be reloaded as a full 64-bit quantity, not silently
+// truncated to 32 bits like the value it points to.
+fn main() -> i32 {
+    let a: i32 = 1;
+    let b: i32 = 2;
+    let c: i32 = 3;
+    let d: i32 = 4;
+    let x: i32 = 100;
+    let p: ptr = &x;
+    let e: i32 = 5;
+    let f: i32 = 6;
+
+    *p = *p + 1;
+
+    return a + b + c + d + e + f + x;
+}

@@ -82,22 +82,34 @@ Chaitin-style graph coloring with spilling: a program with more
 simultaneously-live values than the 4 available registers compiles and
 runs correctly, with the excess spilled to an `rbp`-relative stack frame
 instead of failing to compile.
-`03-compiler/oglang/tests/e2e_test.sh` runs thirteen programs end-to-end
+Pointers are also real: `&x` takes the address of a local or parameter,
+forcing it into a stable stack slot instead of a register (the register
+allocator is told exactly which values are address-taken and excludes
+them from coloring entirely, rather than hoping graph coloring happens
+to spill them); `*p` reads and `*p = v` writes through the resulting
+`ptr` value. Pointers are handled as genuine 64-bit addresses in codegen
+(`leaq`, 64-bit spill slots) even though every other OGLang value is
+32-bit — a stack address routinely lives above the 4 GiB boundary on a
+real 64-bit process, and the first version of this feature computed and
+spilled addresses through 32-bit registers/slots, silently truncating
+them into garbage (an immediate segfault on the first real test, caught
+by that test, not by inspection).
+
+`03-compiler/oglang/tests/e2e_test.sh` runs fifteen programs end-to-end
 and checks their real process exit codes, including cases specifically
 chosen to fail under a naive calling convention, an unconstrained
-division lowering, or superficial/fake spilling — five real bugs were
-caught this way across this compiler's development (not by inspection):
-a naive calling convention corrupting operands, a division codegen typo,
-and three distinct clobber hazards across parameter unpacking and
-argument marshaling, the last of which only appeared once spilling,
-loops, and a 6-argument call were combined in one program. Frontend and
-codegen invariants are additionally covered by
-`03-compiler/oglang/tests/unit_test.sh` (58 assertions). The type checker
+division lowering, superficial/fake spilling, or 32-bit-truncated
+pointers — six real bugs were caught this way across this compiler's
+development (not by inspection): a naive calling convention corrupting
+operands, a division codegen typo, three distinct clobber hazards across
+parameter unpacking and argument marshaling, and the pointer-truncation
+bug above. Frontend and codegen invariants are additionally covered by
+`03-compiler/oglang/tests/unit_test.sh` (65 assertions). The type checker
 also verifies every function returns on
 all paths (an `if` without an `else`, or a function ending in a bare
 `while` loop, is rejected — a loop may run zero times).
 Not yet implemented: generics, traits, ownership/borrowing, `for` loops,
-and any type other than `i32`.
+arrays, structs, and any type other than `i32`/`ptr`.
 
 ## 🖥️ Techuilaguy OS — second deep system
 
@@ -176,7 +188,8 @@ yet — see `22-os/README.md`.
 - [x] Lexer → Parser → AST → Type Checker → IR → Register Allocation → x86-64 → linked native ELF executable, verified by an end-to-end test
 - [x] Register-constrained division, `if`/`else` control flow, multi-function programs, calls with any number of arguments (register + stack-passed), a correct calling convention across nested/recursive calls
 - [x] `while` loops, mutable-variable assignment, real register-allocator spilling (Chaitin-style graph coloring, `rbp`-relative stack slots), all-paths-return checking
-- [ ] `for` loops, types other than `i32`
+- [x] Real pointers: `&`/`*` (address-of, load, store) as genuine 64-bit addresses, with address-taken locals forced into stable stack slots
+- [ ] `for` loops, arrays, structs, types other than `i32`/`ptr`
 - [ ] Ownership, borrowing, generics, traits, safe concurrency
 - [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation
 - [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)

@@ -100,6 +100,8 @@ std::vector<Token> Lexer::tokenize() {
                 kind = TokenKind::While;
             else if (text == "i32")
                 kind = TokenKind::TypeI32;
+            else if (text == "ptr")
+                kind = TokenKind::TypePtr;
             else
                 kind = TokenKind::Identifier;
 
@@ -183,6 +185,12 @@ std::vector<Token> Lexer::tokenize() {
             case '+':
                 text = "+";
                 kind = TokenKind::Plus;
+                advance();
+                break;
+
+            case '&':
+                text = "&";
+                kind = TokenKind::Ampersand;
                 advance();
                 break;
 

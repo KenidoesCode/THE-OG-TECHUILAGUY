@@ -25,11 +25,13 @@ private:
 
     std::vector<Param> parseParamList();
     std::vector<std::unique_ptr<Expr>> parseArgList();
+    std::string parseType();
 
     std::unique_ptr<Statement> parseStatement();
     std::unique_ptr<Statement> parseIf();
     std::unique_ptr<Statement> parseWhile();
     std::unique_ptr<Statement> parseAssign();
+    std::unique_ptr<Statement> parseStore();
 
     std::unique_ptr<Expr> parseExpression();
     std::unique_ptr<Expr> parseEquality();

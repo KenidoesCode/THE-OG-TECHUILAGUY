@@ -79,4 +79,10 @@ check "spilled loop-mutated values passed as mixed register/stack call arguments
 check "unary minus on a literal, a variable, and double negation" \
     "tests/programs/unary_minus.og" 5
 
+check "pointer aliasing: mutating *p is visible reading the variable by name" \
+    "tests/programs/pointer_aliasing.og" 1
+
+check "a pointer forced to spill is reloaded as a full 64-bit value, not truncated" \
+    "tests/programs/pointer_spill.og" 122
+
 exit $FAIL
