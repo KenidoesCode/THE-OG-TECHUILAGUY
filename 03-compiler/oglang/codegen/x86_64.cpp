@@ -23,6 +23,8 @@ std::string to64(const std::string& reg32In) {
     if (reg32 == "edx") return "rdx";
     if (reg32 == "esi") return "rsi";
     if (reg32 == "edi") return "rdi";
+    if (reg32 == "ebx") return "rbx";
+    if (reg32 == "r8d") return "r8";
 
     throw std::runtime_error("No 64-bit alias for register: " + reg32In);
 }
@@ -56,28 +58,74 @@ std::string X86Codegen::generateEntryPoint(
 
 std::string X86Codegen::generate(
     const IRFunction& ir,
-    const std::unordered_map<ValueId, std::string>& allocation,
+    const RegisterAllocation& allocation,
     const std::unordered_map<ValueId, LiveRange>& liveness
 ) {
     std::ostringstream out;
 
-    auto reg = [&](ValueId value) -> std::string {
-        auto it = allocation.find(value);
-
-        if (it == allocation.end()) {
+    // Spill slot N lives at -8*(N+1)(%rbp). 8-byte-aligned slots even
+    // though every value here is 32-bit: simple arithmetic, and the
+    // frame pointer makes the offset valid regardless of how much the
+    // balanced pushq/popq churn from call-argument marshaling or
+    // division scratch-saving transiently moves rsp elsewhere in the
+    // body.
+    auto spillAddress = [&](ValueId value) -> std::string {
+        auto it = allocation.spillSlots.find(value);
+        if (it == allocation.spillSlots.end()) {
             throw std::runtime_error(
-                "No register allocated for value"
+                "Value has no spill slot"
             );
         }
+        return "-" + std::to_string((it->second + 1) * 8) + "(%rbp)";
+    };
 
-        return "%" + it->second;
+    auto isSpilled = [&](ValueId value) -> bool {
+        return allocation.registers.find(value) ==
+               allocation.registers.end();
+    };
+
+    // Reads `value`: returns its real register operand directly, or
+    // loads it from its spill slot into `scratch` first and returns
+    // that. Callers pick distinct scratch registers (ebx/edi/r8d — all
+    // permanently outside the register allocator's pool of
+    // eax/ecx/edx/esi, and not held across instruction boundaries by
+    // anything else) so two spilled operands in the same instruction
+    // never clobber each other.
+    auto loadRead = [&](ValueId value, const char* scratch) -> std::string {
+        auto it = allocation.registers.find(value);
+        if (it != allocation.registers.end()) {
+            return "%" + it->second;
+        }
+
+        out << "    movl " << spillAddress(value) << ", %" << scratch << "\n";
+        return std::string("%") + scratch;
+    };
+
+    // Returns where to compute a result for `value`: its real register,
+    // or `scratch` if it's spilled. Pair with storeSpilled after the
+    // computation to flush a spilled result back to memory.
+    auto writeTarget = [&](ValueId value, const char* scratch) -> std::string {
+        auto it = allocation.registers.find(value);
+        if (it != allocation.registers.end()) {
+            return "%" + it->second;
+        }
+        return std::string("%") + scratch;
+    };
+
+    auto storeIfSpilled = [&](ValueId value, const char* scratch) {
+        if (isSpilled(value)) {
+            out << "    movl %" << scratch << ", "
+                << spillAddress(value) << "\n";
+        }
     };
 
     // Physical pool registers holding a value that is both defined
     // strictly before `index` and still needed strictly after it —
     // i.e. a value that a call or division at `index` would otherwise
-    // clobber. `exclude` is this instruction's own destination, which
-    // never needs preserving (nothing depends on its old contents).
+    // clobber. Spilled values are never included: they live in memory,
+    // which a call or idivl can't touch, so they never need saving.
+    // `exclude` is this instruction's own destination, which never
+    // needs preserving (nothing depends on its old contents).
     auto liveAcross = [&](
         int index,
         ValueId exclude
@@ -85,7 +133,7 @@ std::string X86Codegen::generate(
 
         std::vector<std::pair<ValueId, std::string>> result;
 
-        for (const auto& [value, physReg] : allocation) {
+        for (const auto& [value, physReg] : allocation.registers) {
             if (value == exclude)
                 continue;
 
@@ -105,52 +153,107 @@ std::string X86Codegen::generate(
     // Shared codegen for add/sub/imul. All three follow the same
     // 2-address pattern (move left into destination, then operate
     // destination against right) — which is unsafe whenever the
-    // register allocator happens to give the destination the same
-    // physical register as the *right* operand while the left operand
-    // sits elsewhere: the "move left into destination" step would
-    // silently clobber right's value before the operation reads it.
-    // When that happens, stage the original right-hand value on the
-    // stack first and operate against it there instead.
+    // resolved destination location is the same as the resolved right
+    // operand while the left operand sits elsewhere: the "move left
+    // into destination" step would silently clobber right's value
+    // before the operation reads it. When that happens, stage the
+    // original right-hand value on the stack first and operate against
+    // it there instead. This can only actually happen when neither
+    // operand is spilled (spilled operands are loaded into dedicated
+    // scratch registers that are never reused as the destination
+    // scratch for a *different* still-needed value in the same
+    // instruction), but the check is unconditional so it stays correct
+    // regardless of exactly which values end up spilled.
     auto emitBinaryOp = [&](
         const char* mnemonic,
         ValueId destination,
         ValueId left,
         ValueId right
     ) {
-        std::string destReg = reg(destination);
-        std::string leftReg = reg(left);
-        std::string rightReg = reg(right);
+        std::string leftLoc = loadRead(left, "ebx");
+        std::string rightLoc = loadRead(right, "edi");
+        std::string destLoc = writeTarget(destination, "r8d");
 
-        if (destReg == rightReg && destReg != leftReg) {
-            out << "    pushq %" << to64(rightReg) << "\n";
-            out << "    movl " << leftReg << ", " << destReg << "\n";
-            out << "    " << mnemonic << "l (%rsp), " << destReg << "\n";
+        if (destLoc == rightLoc && destLoc != leftLoc) {
+            out << "    pushq %" << to64(rightLoc) << "\n";
+            out << "    movl " << leftLoc << ", " << destLoc << "\n";
+            out << "    " << mnemonic << "l (%rsp), " << destLoc << "\n";
             out << "    addq $8, %rsp\n";
-            return;
+        } else {
+            if (destLoc != leftLoc) {
+                out << "    movl " << leftLoc << ", " << destLoc << "\n";
+            }
+            out << "    " << mnemonic << "l " << rightLoc << ", " << destLoc << "\n";
         }
 
-        if (destReg != leftReg) {
-            out << "    movl " << leftReg << ", " << destReg << "\n";
-        }
-
-        out << "    " << mnemonic << "l " << rightReg << ", " << destReg << "\n";
+        storeIfSpilled(destination, "r8d");
     };
+
+    // setcc only writes an 8-bit register; every register we ever use
+    // (pool or scratch) has a directly addressable low-byte alias in
+    // 64-bit mode.
+    auto byteAlias = [](const std::string& reg) -> std::string {
+        if (reg == "%eax") return "%al";
+        if (reg == "%ecx") return "%cl";
+        if (reg == "%edx") return "%dl";
+        if (reg == "%esi") return "%sil";
+        if (reg == "%ebx") return "%bl";
+        if (reg == "%edi") return "%dil";
+        if (reg == "%r8d") return "%r8b";
+        throw std::runtime_error("No 8-bit alias for register: " + reg);
+    };
+
+    int spillBytes = allocation.spillSlotCount * 8;
 
     out << ".global " << ir.name << "\n";
     out << ir.name << ":\n";
+    out << "    pushq %rbp\n";
+    out << "    movq %rsp, %rbp\n";
+    if (spillBytes > 0) {
+        out << "    subq $" << spillBytes << ", %rsp\n";
+    }
+
+    // Unpack incoming parameters before the main instruction loop,
+    // using the same stack-mediated technique as call-argument
+    // marshaling and for the same reason: an earlier parameter's
+    // destination can coincide with a *later* parameter's ABI source
+    // register whenever the allocator determines the two don't
+    // interfere (e.g. the first parameter is dead by the time the last
+    // one is read). Writing destinations one at a time directly from
+    // edi/esi/edx/ecx would then silently clobber a not-yet-read
+    // argument. Pushing all of them first and popping each into its
+    // real destination decouples "read the incoming values" from
+    // "write the destinations" entirely, exactly as it does for calls.
+    // By construction (IRLowerer::lower), the first ir.paramCount
+    // instructions are exactly the ParamI32s, in order.
+    if (ir.paramCount > 0) {
+        for (int p = ir.paramCount - 1; p >= 0; --p) {
+            out << "    pushq %" << to64(kAbiArgRegisters[p]) << "\n";
+        }
+
+        for (int p = 0; p < ir.paramCount; ++p) {
+            ValueId dest = ir.instructions[p].destination;
+
+            if (isSpilled(dest)) {
+                out << "    popq " << spillAddress(dest) << "\n";
+            } else {
+                out << "    popq %"
+                    << to64(allocation.registers.at(dest)) << "\n";
+            }
+        }
+    }
 
     for (int i = 0; i < static_cast<int>(ir.instructions.size()); ++i) {
         const auto& inst = ir.instructions[i];
 
         switch (inst.opcode) {
 
-            case OpCode::ConstI32:
-                out << "    movl $"
-                    << inst.value
-                    << ", "
-                    << reg(inst.destination)
-                    << "\n";
+            case OpCode::ConstI32: {
+                std::string destLoc = writeTarget(inst.destination, "ebx");
+                out << "    movl $" << inst.value << ", " << destLoc << "\n";
+                storeIfSpilled(inst.destination, "ebx");
                 break;
+            }
 
             case OpCode::AddI32:
                 emitBinaryOp("add", inst.destination, inst.left, inst.right);
@@ -164,14 +267,27 @@ std::string X86Codegen::generate(
                 emitBinaryOp("imul", inst.destination, inst.left, inst.right);
                 break;
 
+            case OpCode::MoveI32: {
+                std::string srcLoc = loadRead(inst.left, "ebx");
+                std::string destLoc = writeTarget(inst.destination, "ebx");
+
+                if (destLoc != srcLoc) {
+                    out << "    movl " << srcLoc << ", " << destLoc << "\n";
+                }
+
+                storeIfSpilled(inst.destination, "ebx");
+                break;
+            }
+
             case OpCode::DivI32: {
                 // idivl requires the dividend sign-extended across
                 // edx:eax and forbids eax/edx as the divisor operand.
                 // Both are clobbered unconditionally, so any other
-                // value currently held in eax or edx that is still
-                // needed after this instruction must be saved first.
-                std::string leftReg = reg(inst.left);
-                std::string rightReg = reg(inst.right);
+                // register-allocated value still needed after this
+                // instruction that currently occupies eax or edx must
+                // be saved first.
+                std::string rightLoc = loadRead(inst.right, "edi");
+                std::string leftLoc = loadRead(inst.left, "ebx");
 
                 auto saved = liveAcross(i, inst.destination);
 
@@ -189,18 +305,20 @@ std::string X86Codegen::generate(
 
                 // Capture the divisor before eax/edx are overwritten,
                 // in case it currently lives in one of them.
-                out << "    movl " << rightReg << ", %ecx\n";
-                out << "    movl " << leftReg << ", %eax\n";
+                out << "    movl " << rightLoc << ", %ecx\n";
+                out << "    movl " << leftLoc << ", %eax\n";
                 out << "    cdq\n";
                 out << "    idivl %ecx\n";
 
-                if (reg(inst.destination) != "%eax") {
-                    out << "    movl %eax, "
-                        << reg(inst.destination) << "\n";
+                std::string destLoc = writeTarget(inst.destination, "ebx");
+                if (destLoc != "%eax") {
+                    out << "    movl %eax, " << destLoc << "\n";
                 }
+                storeIfSpilled(inst.destination, "ebx");
 
                 for (auto it = toSave.rbegin(); it != toSave.rend(); ++it) {
-                    if (reg(inst.destination) == "%" + it->second) {
+                    if (!isSpilled(inst.destination) &&
+                        destLoc == "%" + it->second) {
                         // The destination reclaimed this physical
                         // register; its old contents are no longer
                         // needed by anyone (interference analysis
@@ -221,11 +339,10 @@ std::string X86Codegen::generate(
             case OpCode::CmpLtI32:
             case OpCode::CmpGeI32:
             case OpCode::CmpLeI32: {
-                out << "    cmpl "
-                    << reg(inst.right)
-                    << ", "
-                    << reg(inst.left)
-                    << "\n";
+                std::string leftLoc = loadRead(inst.left, "ebx");
+                std::string rightLoc = loadRead(inst.right, "edi");
+
+                out << "    cmpl " << rightLoc << ", " << leftLoc << "\n";
 
                 const char* setcc = nullptr;
                 switch (inst.opcode) {
@@ -238,28 +355,18 @@ std::string X86Codegen::generate(
                     default: break;
                 }
 
-                std::string destReg = reg(inst.destination);
-
-                // setcc only writes an 8-bit register. In 64-bit mode
-                // every pool register (eax/ecx/edx/esi) has a directly
-                // addressable low-byte alias.
-                std::string destByte;
-                if (destReg == "%eax") destByte = "%al";
-                else if (destReg == "%ecx") destByte = "%cl";
-                else if (destReg == "%edx") destByte = "%dl";
-                else if (destReg == "%esi") destByte = "%sil";
-                else throw std::runtime_error(
-                    "No 8-bit alias for register: " + destReg
-                );
+                std::string destLoc = writeTarget(inst.destination, "r8d");
+                std::string destByte = byteAlias(destLoc);
 
                 out << "    " << setcc << " " << destByte << "\n";
-                out << "    movzbl " << destByte << ", "
-                    << destReg << "\n";
+                out << "    movzbl " << destByte << ", " << destLoc << "\n";
+
+                storeIfSpilled(inst.destination, "r8d");
 
                 break;
             }
 
-            case OpCode::ParamI32: {
+            case OpCode::ParamI32:
                 if (inst.value < 0 ||
                     inst.value >= static_cast<int>(kAbiArgRegisters.size())) {
                     throw std::runtime_error(
@@ -269,15 +376,9 @@ std::string X86Codegen::generate(
                     );
                 }
 
-                std::string abiReg = kAbiArgRegisters[inst.value];
-
-                if (reg(inst.destination) != "%" + abiReg) {
-                    out << "    movl %" << abiReg << ", "
-                        << reg(inst.destination) << "\n";
-                }
-
+                // Already unpacked by the stack-mediated prologue
+                // sequence above, before this loop starts.
                 break;
-            }
 
             case OpCode::Call: {
                 if (inst.args.size() > kAbiArgRegisters.size()) {
@@ -292,17 +393,28 @@ std::string X86Codegen::generate(
 
                 // 1. Preserve every pool register holding a value the
                 //    callee might clobber and that is still needed
-                //    after the call.
+                //    after the call. Spilled values need no saving —
+                //    they already live in memory the callee can't
+                //    touch.
                 for (auto& [value, physReg] : saved) {
                     (void)value;
                     out << "    pushq %" << to64(physReg) << "\n";
                 }
 
-                // 2. Push argument values (read directly from their
-                //    current registers, unaffected by step 1's
-                //    pushes) in left-to-right order.
+                // 2. Push argument values in left-to-right order. A
+                //    spilled argument is pushed directly from its
+                //    spill slot (the stack-mediated marshaling below
+                //    already goes through memory, so there's nothing
+                //    to gain by loading it into a register first; the
+                //    garbage upper 32 bits carried along are never
+                //    read back, since everything here only ever reads
+                //    the low 32-bit view of a popped register).
                 for (ValueId arg : inst.args) {
-                    out << "    pushq %" << to64(reg(arg)) << "\n";
+                    if (isSpilled(arg)) {
+                        out << "    pushq " << spillAddress(arg) << "\n";
+                    } else {
+                        out << "    pushq %" << to64(allocation.registers.at(arg)) << "\n";
+                    }
                 }
 
                 // 3. Pop them into the ABI registers in reverse, which
@@ -319,14 +431,16 @@ std::string X86Codegen::generate(
 
                 out << "    call " << inst.label << "\n";
 
-                if (reg(inst.destination) != "%eax") {
-                    out << "    movl %eax, "
-                        << reg(inst.destination) << "\n";
+                std::string destLoc = writeTarget(inst.destination, "ebx");
+                if (destLoc != "%eax") {
+                    out << "    movl %eax, " << destLoc << "\n";
                 }
+                storeIfSpilled(inst.destination, "ebx");
 
                 // 4. Restore, in reverse push order.
                 for (auto it = saved.rbegin(); it != saved.rend(); ++it) {
-                    if (reg(inst.destination) == "%" + it->second) {
+                    if (!isSpilled(inst.destination) &&
+                        destLoc == "%" + it->second) {
                         out << "    addq $8, %rsp\n";
                     } else {
                         out << "    popq %" << to64(it->second) << "\n";
@@ -344,21 +458,23 @@ std::string X86Codegen::generate(
                 out << "    jmp " << inst.label << "\n";
                 break;
 
-            case OpCode::JumpIfZero:
-                out << "    testl "
-                    << reg(inst.left) << ", " << reg(inst.left) << "\n";
+            case OpCode::JumpIfZero: {
+                std::string condLoc = loadRead(inst.left, "ebx");
+                out << "    testl " << condLoc << ", " << condLoc << "\n";
                 out << "    jz " << inst.label << "\n";
                 break;
+            }
 
-            case OpCode::ReturnI32:
-                if (reg(inst.left) != "%eax") {
-                    out << "    movl "
-                        << reg(inst.left)
-                        << ", %eax\n";
+            case OpCode::ReturnI32: {
+                std::string valueLoc = loadRead(inst.left, "ebx");
+                if (valueLoc != "%eax") {
+                    out << "    movl " << valueLoc << ", %eax\n";
                 }
 
+                out << "    leave\n";
                 out << "    ret\n";
                 break;
+            }
         }
     }
 

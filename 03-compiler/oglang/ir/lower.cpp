@@ -55,6 +55,64 @@ void IRLowerer::lowerStatement(
         return;
     }
 
+    if (auto* assignStmt = dynamic_cast<const AssignStmt*>(&statement)) {
+        auto it = variables.find(assignStmt->name);
+
+        if (it == variables.end()) {
+            throw std::runtime_error(
+                "Assignment to unknown variable: " + assignStmt->name
+            );
+        }
+
+        ValueId newValue = lowerExpr(*assignStmt->value, ir);
+
+        // Written into the variable's existing ValueId in place,
+        // deliberately not rebound to newValue — see MoveI32's comment
+        // in ir.hpp for why.
+        ir.instructions.push_back({
+            OpCode::MoveI32,
+            it->second,
+            newValue,
+            -1,
+            0,
+            {},
+            ""
+        });
+
+        return;
+    }
+
+    if (auto* whileStmt = dynamic_cast<const WhileStmt*>(&statement)) {
+        std::string loopStart = freshLabel(".Lloop");
+        std::string loopEnd = freshLabel(".Lloopend");
+
+        IRInstruction startLabel{
+            OpCode::Label, -1, -1, -1, 0, {}, loopStart
+        };
+        ir.instructions.push_back(startLabel);
+
+        ValueId cond = lowerExpr(*whileStmt->condition, ir);
+
+        IRInstruction branch{
+            OpCode::JumpIfZero, -1, cond, -1, 0, {}, loopEnd
+        };
+        ir.instructions.push_back(branch);
+
+        lowerBlock(whileStmt->body, ir);
+
+        IRInstruction backEdge{
+            OpCode::Jump, -1, -1, -1, 0, {}, loopStart
+        };
+        ir.instructions.push_back(backEdge);
+
+        IRInstruction endLabel{
+            OpCode::Label, -1, -1, -1, 0, {}, loopEnd
+        };
+        ir.instructions.push_back(endLabel);
+
+        return;
+    }
+
     if (auto* returnStmt = dynamic_cast<const ReturnStmt*>(&statement)) {
         ValueId value = lowerExpr(*returnStmt->value, ir);
 

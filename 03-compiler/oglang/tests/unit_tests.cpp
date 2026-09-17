@@ -171,6 +171,30 @@ void testParserParsesIfElse() {
           "parser: else-branch body is parsed");
 }
 
+void testParserParsesWhileAndAssignment() {
+    Program program = parseProgram(
+        "fn main() -> i32 { "
+        "  let i: i32 = 0; "
+        "  while (i < 10) { i = i + 1; } "
+        "  return i; "
+        "}"
+    );
+
+    auto* whileStmt = dynamic_cast<WhileStmt*>(program[0].body[1].get());
+    check(whileStmt != nullptr, "parser: while loop parses as WhileStmt");
+    check(whileStmt != nullptr && whileStmt->body.size() == 1,
+          "parser: while body is parsed");
+
+    if (whileStmt != nullptr) {
+        auto* assign =
+            dynamic_cast<AssignStmt*>(whileStmt->body[0].get());
+        check(assign != nullptr,
+              "parser: 'i = i + 1;' parses as AssignStmt");
+        check(assign != nullptr && assign->name == "i",
+              "parser: assignment records the target variable name");
+    }
+}
+
 void testFullPipelineProducesRegisterAllocation() {
     std::string assembly = compileToAssembly(
         "fn main() -> i32 { let x: i32 = 10 + 20 * 3; return x; }"
@@ -226,6 +250,96 @@ void testIfElseCodegenEmitsBranches() {
     check(assembly.find(".Lelse") != std::string::npos ||
           assembly.find(".Lend") != std::string::npos,
           "codegen: if/else lowering emits labels");
+}
+
+void testWhileCodegenEmitsBackEdge() {
+    std::string assembly = compileToAssembly(
+        "fn main() -> i32 { "
+        "  let i: i32 = 0; "
+        "  while (i < 10) { i = i + 1; } "
+        "  return i; "
+        "}"
+    );
+
+    check(assembly.find(".Lloop") != std::string::npos,
+          "codegen: while loop emits a loop-start label");
+    check(assembly.find("jmp .Lloop") != std::string::npos,
+          "codegen: while loop emits a back-edge jump");
+    check(assembly.find("jz .Lloopend") != std::string::npos,
+          "codegen: while loop exits via a conditional jump");
+}
+
+void testRegisterPressureForcesRealSpill() {
+    // Six concurrently-live locals, only 4 registers available: at
+    // least two of these must be spilled to a stack slot rather than
+    // failing to compile at all.
+    std::string assembly = compileToAssembly(
+        "fn main() -> i32 { "
+        "  let a: i32 = 1; let b: i32 = 2; let c: i32 = 3; "
+        "  let d: i32 = 4; let e: i32 = 5; let f: i32 = 6; "
+        "  return a + b + c + d + e + f; "
+        "}"
+    );
+
+    check(assembly.find("subq $") != std::string::npos,
+          "codegen: register pressure triggers a real stack-frame spill "
+          "allocation (subq), not just a compile failure");
+    check(assembly.find("(%rbp)") != std::string::npos,
+          "codegen: spilled values are addressed relative to rbp");
+}
+
+void testTypeCheckerRejectsAssignmentToUndeclaredVariable() {
+    expectProgramThrows(
+        "type checker: rejects assignment to an undeclared variable",
+        "fn main() -> i32 { x = 5; return 0; }"
+    );
+}
+
+void testTypeCheckerValidatesWhileConditionExpression() {
+    // Confirms a while loop's condition is actually type-checked (goes
+    // through checkExpr, same as if/else's condition) rather than
+    // skipped, by rejecting an undefined variable used as the
+    // condition.
+    expectProgramThrows(
+        "type checker: rejects an undefined variable in a while condition",
+        "fn main() -> i32 { while (undefined_flag) { } return 0; }"
+    );
+}
+
+void testTypeCheckerRejectsMissingReturnOnSomePath() {
+    expectProgramThrows(
+        "type checker: rejects a function whose if/else doesn't always return",
+        "fn main() -> i32 { if (1 > 0) { return 1; } }"
+    );
+}
+
+void testTypeCheckerRejectsFunctionEndingInBareWhileLoop() {
+    expectProgramThrows(
+        "type checker: rejects a function that ends in a while loop with "
+        "no following return (a loop may run zero times)",
+        "fn main() -> i32 { let i: i32 = 0; while (i < 1) { i = i + 1; } }"
+    );
+}
+
+void testTypeCheckerAllowsIfElseWhereBothBranchesReturn() {
+    try {
+        Program program = parseProgram(
+            "fn main() -> i32 { "
+            "  if (1 > 0) { return 1; } else { return 0; } "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true,
+              "type checker: accepts if/else where both branches return");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: accepts if/else where both branches return"
+                  " (threw: ") + e.what() + ")");
+    }
 }
 
 void testTypeCheckerRejectsUnknownVariable() {
@@ -314,15 +428,23 @@ int main() {
     testParserBuildsFunctionFromValidSource();
     testParserParsesParametersAndCalls();
     testParserParsesIfElse();
+    testParserParsesWhileAndAssignment();
     testFullPipelineProducesRegisterAllocation();
     testDivisionCodegenUsesRegisterConstrainedIdiv();
     testCallCodegenMarshalsArguments();
     testIfElseCodegenEmitsBranches();
+    testWhileCodegenEmitsBackEdge();
+    testRegisterPressureForcesRealSpill();
     testTypeCheckerRejectsUnknownVariable();
     testTypeCheckerRejectsReturnTypeMismatch();
     testTypeCheckerRejectsUndefinedFunctionCall();
     testTypeCheckerRejectsWrongArgumentCount();
     testTypeCheckerRejectsRedefinedFunction();
+    testTypeCheckerRejectsAssignmentToUndeclaredVariable();
+    testTypeCheckerValidatesWhileConditionExpression();
+    testTypeCheckerRejectsMissingReturnOnSomePath();
+    testTypeCheckerRejectsFunctionEndingInBareWhileLoop();
+    testTypeCheckerAllowsIfElseWhereBothBranchesReturn();
     testTypeCheckerAllowsForwardAndSelfRecursiveCalls();
     testParserRejectsMalformedSyntax();
 

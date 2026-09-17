@@ -75,6 +75,30 @@ struct ReturnStmt : Statement {
         : value(std::move(value)) {}
 };
 
+struct AssignStmt : Statement {
+    std::string name;
+    std::unique_ptr<Expr> value;
+
+    AssignStmt(
+        std::string name,
+        std::unique_ptr<Expr> value
+    )
+        : name(std::move(name)),
+          value(std::move(value)) {}
+};
+
+struct WhileStmt : Statement {
+    std::unique_ptr<Expr> condition;
+    std::vector<std::unique_ptr<Statement>> body;
+
+    WhileStmt(
+        std::unique_ptr<Expr> condition,
+        std::vector<std::unique_ptr<Statement>> body
+    )
+        : condition(std::move(condition)),
+          body(std::move(body)) {}
+};
+
 struct IfStmt : Statement {
     std::unique_ptr<Expr> condition;
 

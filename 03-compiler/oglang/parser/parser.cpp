@@ -9,6 +9,16 @@ const Token& Parser::peek() const {
     return tokens[current];
 }
 
+const Token& Parser::peekNext() const {
+    // The token stream always ends with an End token, so this never
+    // runs past the end as long as we're not already past it.
+    if (current + 1 >= tokens.size()) {
+        return tokens.back();
+    }
+
+    return tokens[current + 1];
+}
+
 const Token& Parser::advance() {
     return tokens[current++];
 }
@@ -181,8 +191,47 @@ std::unique_ptr<Statement> Parser::parseStatement() {
     if (peek().kind == TokenKind::If)
         return parseIf();
 
+    if (peek().kind == TokenKind::While)
+        return parseWhile();
+
+    if (peek().kind == TokenKind::Identifier &&
+        peekNext().kind == TokenKind::Equal)
+        return parseAssign();
+
     throw std::runtime_error(
         "Unknown statement: " + peek().text
+    );
+}
+
+std::unique_ptr<Statement> Parser::parseAssign() {
+    std::string name = expect(TokenKind::Identifier).text;
+
+    expect(TokenKind::Equal);
+
+    auto value = parseExpression();
+
+    expect(TokenKind::Semicolon);
+
+    return std::make_unique<AssignStmt>(
+        name,
+        std::move(value)
+    );
+}
+
+std::unique_ptr<Statement> Parser::parseWhile() {
+    expect(TokenKind::While);
+    expect(TokenKind::LParen);
+
+    auto condition = parseExpression();
+
+    expect(TokenKind::RParen);
+    expect(TokenKind::LBrace);
+
+    auto body = parseBlock();
+
+    return std::make_unique<WhileStmt>(
+        std::move(condition),
+        std::move(body)
     );
 }
 

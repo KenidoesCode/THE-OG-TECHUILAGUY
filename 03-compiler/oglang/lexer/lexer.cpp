@@ -13,6 +13,13 @@ char Lexer::peek() const {
     return source[position];
 }
 
+static char peekAt(const std::string& source, size_t position) {
+    if (position >= source.size())
+        return '\0';
+
+    return source[position];
+}
+
 char Lexer::advance() {
     char c = peek();
 
@@ -32,9 +39,20 @@ char Lexer::advance() {
 }
 
 void Lexer::skipWhitespace() {
-    while (std::isspace(
-        static_cast<unsigned char>(peek()))) {
-        advance();
+    while (true) {
+        while (std::isspace(
+            static_cast<unsigned char>(peek()))) {
+            advance();
+        }
+
+        if (peek() == '/' && peekAt(source, position + 1) == '/') {
+            while (peek() != '\0' && peek() != '\n') {
+                advance();
+            }
+            continue;
+        }
+
+        break;
     }
 }
 
@@ -78,6 +96,8 @@ std::vector<Token> Lexer::tokenize() {
                 kind = TokenKind::If;
             else if (text == "else")
                 kind = TokenKind::Else;
+            else if (text == "while")
+                kind = TokenKind::While;
             else if (text == "i32")
                 kind = TokenKind::TypeI32;
             else

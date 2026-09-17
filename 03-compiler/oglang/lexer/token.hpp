@@ -38,6 +38,7 @@ enum class TokenKind {
 
     If,
     Else,
+    While,
 
     End
 };

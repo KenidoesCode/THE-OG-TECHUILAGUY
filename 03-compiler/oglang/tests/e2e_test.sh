@@ -58,4 +58,16 @@ check "3-argument calling convention (ABI register marshaling)" \
 check "a caller-saved value must survive two separate calls that reuse it" \
     "tests/programs/call_preserves_live_value.og" 21
 
+check "while-loop lowering and back-edge codegen (sum 0..9)" \
+    "tests/programs/loop_sum.og" 45
+
+check "nested while loops with independently reset inner counters" \
+    "tests/programs/nested_loop.og" 9
+
+check "register pressure beyond the 4-register pool forces a real spill" \
+    "tests/programs/register_pressure.og" 21
+
+check "spilled values survive a loop, a branch, and a function call" \
+    "tests/programs/spill_stress.og" 32
+
 exit $FAIL

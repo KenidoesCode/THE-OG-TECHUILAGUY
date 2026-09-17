@@ -23,6 +23,15 @@ enum class OpCode {
     // (0-indexed, ABI-assigned by the codegen's calling convention).
     ParamI32,
 
+    // destination = left, in place. Used for mutable-variable
+    // assignment (AssignStmt) so a variable keeps the same ValueId —
+    // and therefore the same register/spill slot — across its whole
+    // lifetime instead of being rebound to a fresh SSA-style value on
+    // every write. That's what lets a loop's condition check (lowered
+    // once, before the body) and the body's updates to the same
+    // variable agree on where its current value actually lives.
+    MoveI32,
+
     // destination = call(label, args...)
     Call,
 

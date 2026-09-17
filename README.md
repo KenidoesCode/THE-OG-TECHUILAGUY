@@ -62,8 +62,9 @@ fn main() -> i32 {
 
 ```
 Lexer → Parser → AST → Type Checker → IR → Liveness/Interference →
-Register Allocation → x86-64 Codegen (branches, calls, register-
-constrained division) → Assembler → Linker → Native ELF → CPU
+Register Allocation (with real stack spilling) → x86-64 Codegen
+(branches, loops, calls, register-constrained division) →
+Assembler → Linker → Native ELF → CPU
 ```
 
 **Status: PROTOTYPE.** Verified end-to-end: `ogc` compiles multi-function
@@ -71,16 +72,26 @@ programs — including the recursive one above — to a linked x86-64 ELF
 executable that a Linux process loader actually runs. Implemented and
 tested: integer arithmetic with correct operand-clobber handling,
 register-constrained division (`idivl`/`cdq`), comparisons, `if`/`else`
-control flow, and function calls with up to 4 integer arguments under a
-stack-mediated calling convention that keeps a caller's live values correct
-across nested and repeated calls. `03-compiler/oglang/tests/e2e_test.sh`
-runs six programs end-to-end and checks their real process exit codes,
-including cases specifically chosen to fail under a naive calling
-convention or an unconstrained division lowering (both bugs were caught
-this way during development, not by inspection). Frontend and codegen
-invariants are additionally covered by `03-compiler/oglang/tests/unit_test.sh`.
-Not yet implemented: generics, traits, ownership/borrowing, loops, more than
-4 parameters, and any type other than `i32`.
+and `while` control flow, mutable-variable assignment, and function calls
+with up to 4 integer arguments under a stack-mediated calling convention
+that keeps a caller's live values correct across nested and repeated
+calls. The register allocator does real Chaitin-style graph coloring with
+spilling: a program with more simultaneously-live values than the 4
+available registers compiles and runs correctly, with the excess spilled
+to an `rbp`-relative stack frame instead of failing to compile.
+`03-compiler/oglang/tests/e2e_test.sh` runs ten programs end-to-end and
+checks their real process exit codes, including cases specifically chosen
+to fail under a naive calling convention, an unconstrained division
+lowering, or superficial/fake spilling — four real bugs were caught this
+way during development (a naive calling convention corrupting operands, a
+division codegen typo, and two distinct clobber hazards in parameter and
+argument marshaling), not by inspection. Frontend and codegen invariants
+are additionally covered by `03-compiler/oglang/tests/unit_test.sh`
+(51 assertions). The type checker also verifies every function returns on
+all paths (an `if` without an `else`, or a function ending in a bare
+`while` loop, is rejected — a loop may run zero times).
+Not yet implemented: generics, traits, ownership/borrowing, `for` loops,
+more than 4 parameters, and any type other than `i32`.
 
 ## 🖥️ Techuilaguy OS — second deep system
 
@@ -136,7 +147,8 @@ timer/PIC, or filesystem are implemented yet — see `22-os/README.md`.
 - [x] Repository + OGLang v0.1 spec
 - [x] Lexer → Parser → AST → Type Checker → IR → Register Allocation → x86-64 → linked native ELF executable, verified by an end-to-end test
 - [x] Register-constrained division, `if`/`else` control flow, multi-function programs, calls with up to 4 arguments, a correct calling convention across nested/recursive calls
-- [ ] Loops, more than 4 parameters, types other than `i32`
+- [x] `while` loops, mutable-variable assignment, real register-allocator spilling (Chaitin-style graph coloring, `rbp`-relative stack slots), all-paths-return checking
+- [ ] `for` loops, more than 4 parameters, types other than `i32`
 - [ ] Ownership, borrowing, generics, traits, safe concurrency
 - [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation
 - [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)

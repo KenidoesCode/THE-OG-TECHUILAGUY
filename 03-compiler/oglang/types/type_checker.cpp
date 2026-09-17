@@ -133,6 +133,45 @@ public:
             return;
         }
 
+        if (auto* assignStmt =
+                dynamic_cast<const AssignStmt*>(&statement)) {
+
+            auto it = variables.find(assignStmt->name);
+
+            if (it == variables.end()) {
+                throw std::runtime_error(
+                    "Assignment to undeclared variable: " +
+                    assignStmt->name
+                );
+            }
+
+            std::string actual = checkExpr(*assignStmt->value);
+
+            if (actual != it->second) {
+                throw std::runtime_error(
+                    "Type mismatch assigning to variable: " +
+                    assignStmt->name
+                );
+            }
+
+            return;
+        }
+
+        if (auto* whileStmt =
+                dynamic_cast<const WhileStmt*>(&statement)) {
+
+            std::string condType = checkExpr(*whileStmt->condition);
+
+            if (condType != "i32") {
+                throw std::runtime_error(
+                    "While condition must be i32 (0 is false, nonzero is true)"
+                );
+            }
+
+            checkBlock(whileStmt->body, functionReturnType);
+            return;
+        }
+
         if (auto* returnStmt =
                 dynamic_cast<const ReturnStmt*>(&statement)) {
 
@@ -167,6 +206,33 @@ public:
 private:
     const std::unordered_map<std::string, FunctionSignature>& signatures;
 };
+
+// A function's body must be guaranteed to execute a return statement on
+// every path, or codegen would fall off the end of its generated
+// instructions with no `ret` at all. A while loop is never sufficient
+// on its own (it may run zero times); an if/else is only sufficient if
+// *both* branches always return.
+bool blockAlwaysReturns(
+    const std::vector<std::unique_ptr<Statement>>& body
+) {
+    if (body.empty()) {
+        return false;
+    }
+
+    const Statement& last = *body.back();
+
+    if (dynamic_cast<const ReturnStmt*>(&last)) {
+        return true;
+    }
+
+    if (auto* ifStmt = dynamic_cast<const IfStmt*>(&last)) {
+        return !ifStmt->elseBody.empty() &&
+               blockAlwaysReturns(ifStmt->thenBody) &&
+               blockAlwaysReturns(ifStmt->elseBody);
+    }
+
+    return false;
+}
 
 }  // namespace
 
@@ -203,5 +269,12 @@ void TypeChecker::check(const Program& program) {
         }
 
         checker.checkBlock(function.body, function.returnType);
+
+        if (!blockAlwaysReturns(function.body)) {
+            throw std::runtime_error(
+                "Function '" + function.name +
+                "' does not return on all paths"
+            );
+        }
     }
 }

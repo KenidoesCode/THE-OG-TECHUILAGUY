@@ -1,0 +1,32 @@
+// Forces more simultaneously-live values than there are registers
+// (only 4 are available), then exercises every one of them through a
+// loop, a branch, and a function call — specifically to check that
+// spilled values survive all of those, not just simple arithmetic.
+fn addAll(a: i32, b: i32, c: i32, d: i32) -> i32 {
+    return a + b + c + d;
+}
+
+fn main() -> i32 {
+    let v1: i32 = 1;
+    let v2: i32 = 2;
+    let v3: i32 = 3;
+    let v4: i32 = 4;
+    let v5: i32 = 5;
+    let v6: i32 = 6;
+    let v7: i32 = 7;
+
+    let i: i32 = 0;
+    while (i < 3) {
+        v1 = v1 + 1;
+        i = i + 1;
+    }
+
+    if (v1 > 0) {
+        v2 = v2 + 1;
+    } else {
+        v2 = v2 - 1;
+    }
+
+    let sum: i32 = addAll(v1, v2, v3, v4) + v5 + v6 + v7;
+    return sum;
+}

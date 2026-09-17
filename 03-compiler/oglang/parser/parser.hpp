@@ -17,6 +17,7 @@ private:
     size_t current = 0;
 
     const Token& peek() const;
+    const Token& peekNext() const;
     const Token& advance();
 
     bool match(TokenKind kind);
@@ -27,6 +28,8 @@ private:
 
     std::unique_ptr<Statement> parseStatement();
     std::unique_ptr<Statement> parseIf();
+    std::unique_ptr<Statement> parseWhile();
+    std::unique_ptr<Statement> parseAssign();
 
     std::unique_ptr<Expr> parseExpression();
     std::unique_ptr<Expr> parseEquality();
