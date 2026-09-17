@@ -70,4 +70,10 @@ check "register pressure beyond the 4-register pool forces a real spill" \
 check "spilled values survive a loop, a branch, and a function call" \
     "tests/programs/spill_stress.og" 32
 
+check "more than 4 arguments requires stack-passed parameters, order-sensitive" \
+    "tests/programs/many_args.og" 85
+
+check "spilled loop-mutated values passed as mixed register/stack call arguments" \
+    "tests/programs/spill_and_stack_args.og" 76
+
 exit $FAIL

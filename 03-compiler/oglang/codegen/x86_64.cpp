@@ -225,13 +225,22 @@ std::string X86Codegen::generate(
     // real destination decouples "read the incoming values" from
     // "write the destinations" entirely, exactly as it does for calls.
     // By construction (IRLowerer::lower), the first ir.paramCount
-    // instructions are exactly the ParamI32s, in order.
-    if (ir.paramCount > 0) {
-        for (int p = ir.paramCount - 1; p >= 0; --p) {
+    // instructions are exactly the ParamI32s, in order. Only the first
+    // 4 arrive in registers; any beyond that were pushed onto the
+    // stack by the caller (see the Call case below) and are read
+    // directly at a fixed rbp-relative offset instead, with no clobber
+    // hazard to resolve since each stack slot is independently
+    // addressed.
+    int registerParamCount = std::min(
+        ir.paramCount, static_cast<int>(kAbiArgRegisters.size())
+    );
+
+    if (registerParamCount > 0) {
+        for (int p = registerParamCount - 1; p >= 0; --p) {
             out << "    pushq %" << to64(kAbiArgRegisters[p]) << "\n";
         }
 
-        for (int p = 0; p < ir.paramCount; ++p) {
+        for (int p = 0; p < registerParamCount; ++p) {
             ValueId dest = ir.instructions[p].destination;
 
             if (isSpilled(dest)) {
@@ -367,27 +376,54 @@ std::string X86Codegen::generate(
             }
 
             case OpCode::ParamI32:
-                if (inst.value < 0 ||
-                    inst.value >= static_cast<int>(kAbiArgRegisters.size())) {
+                if (inst.value < 0) {
                     throw std::runtime_error(
-                        "OGLang currently supports at most " +
-                        std::to_string(kAbiArgRegisters.size()) +
-                        " integer parameters"
+                        "Invalid parameter index"
                     );
                 }
 
-                // Already unpacked by the stack-mediated prologue
-                // sequence above, before this loop starts.
+                if (inst.value < static_cast<int>(kAbiArgRegisters.size())) {
+                    // Already unpacked by the stack-mediated prologue
+                    // sequence above, before this loop starts.
+                    break;
+                }
+
+                {
+                    // Stack-passed parameter: the caller pushed it at
+                    // a fixed offset relative to the return address
+                    // (see the Call case's step 4), so 16(%rbp) is
+                    // argument index kAbiArgRegisters.size(), each
+                    // subsequent one 8 bytes further — 16 accounts for
+                    // the saved rbp (8) and the return address (8)
+                    // this function's own prologue and `call` pushed.
+                    int stackIndex =
+                        inst.value - static_cast<int>(kAbiArgRegisters.size());
+                    std::string src =
+                        std::to_string(16 + stackIndex * 8) + "(%rbp)";
+
+                    std::string destLoc = writeTarget(inst.destination, "ebx");
+                    out << "    movl " << src << ", " << destLoc << "\n";
+                    storeIfSpilled(inst.destination, "ebx");
+                }
+
                 break;
 
             case OpCode::Call: {
-                if (inst.args.size() > kAbiArgRegisters.size()) {
-                    throw std::runtime_error(
-                        "OGLang currently supports at most " +
-                        std::to_string(kAbiArgRegisters.size()) +
-                        " call arguments"
-                    );
-                }
+                int registerArgCount = std::min(
+                    static_cast<int>(inst.args.size()),
+                    static_cast<int>(kAbiArgRegisters.size())
+                );
+                int stackArgCount =
+                    static_cast<int>(inst.args.size()) - registerArgCount;
+
+                auto pushArgValue = [&](ValueId arg) {
+                    if (isSpilled(arg)) {
+                        out << "    pushq " << spillAddress(arg) << "\n";
+                    } else {
+                        out << "    pushq %"
+                            << to64(allocation.registers.at(arg)) << "\n";
+                    }
+                };
 
                 auto saved = liveAcross(i, inst.destination);
 
@@ -401,28 +437,53 @@ std::string X86Codegen::generate(
                     out << "    pushq %" << to64(physReg) << "\n";
                 }
 
-                // 2. Push argument values in left-to-right order. A
-                //    spilled argument is pushed directly from its
-                //    spill slot (the stack-mediated marshaling below
-                //    already goes through memory, so there's nothing
-                //    to gain by loading it into a register first; the
-                //    garbage upper 32 bits carried along are never
-                //    read back, since everything here only ever reads
-                //    the low 32-bit view of a popped register).
-                for (ValueId arg : inst.args) {
-                    if (isSpilled(arg)) {
-                        out << "    pushq " << spillAddress(arg) << "\n";
-                    } else {
-                        out << "    pushq %" << to64(allocation.registers.at(arg)) << "\n";
-                    }
+                // 2. Push any arguments beyond the 4 ABI registers
+                //    first, in descending index order, reading each
+                //    one from its *original* register or spill slot —
+                //    crucially, before step 3 below pops anything into
+                //    edx/ecx/esi, which overlap the general register
+                //    pool and could otherwise silently clobber a
+                //    stack-bound argument that just hadn't been read
+                //    yet (this exact bug shipped once and was caught
+                //    by tests/programs/spill_stress.og-style stress
+                //    testing, not by inspection). Descending order
+                //    means the lowest-indexed stack argument (arg 4)
+                //    ends up pushed last and therefore closest to the
+                //    return address once `call` pushes it — i.e. at a
+                //    fixed, predictable offset (16(%rbp)) in the
+                //    callee, with each subsequent one 8 bytes further.
+                //    See ParamI32 above for the matching read side.
+                for (int argIndex = static_cast<int>(inst.args.size()) - 1;
+                     argIndex >= registerArgCount;
+                     --argIndex) {
+                    pushArgValue(inst.args[argIndex]);
                 }
 
-                // 3. Pop them into the ABI registers in reverse, which
+                // 3. Push the first (up to 4) argument values in
+                //    left-to-right order — still reading every one
+                //    from its original location, since nothing has
+                //    been popped yet. A spilled argument is pushed
+                //    directly from its spill slot (the stack-mediated
+                //    marshaling here already goes through memory, so
+                //    there's nothing to gain by loading it into a
+                //    register first; the garbage upper 32 bits carried
+                //    along are never read back, since everything here
+                //    only ever reads the low 32-bit view of a popped
+                //    register).
+                for (int argIndex = 0; argIndex < registerArgCount; ++argIndex) {
+                    pushArgValue(inst.args[argIndex]);
+                }
+
+                // 4. Now, and only now, pop the register arguments off
+                //    into the ABI registers, in reverse — which also
                 //    resolves any overlap between an argument's source
                 //    register and another argument's target register
                 //    (or a saved register) purely through memory,
-                //    without a parallel-move algorithm.
-                for (int argIndex = static_cast<int>(inst.args.size()) - 1;
+                //    without a parallel-move algorithm. This leaves
+                //    the stack arguments from step 2 undisturbed
+                //    underneath, already in the right position for the
+                //    callee.
+                for (int argIndex = registerArgCount - 1;
                      argIndex >= 0;
                      --argIndex) {
                     out << "    popq %"
@@ -430,6 +491,11 @@ std::string X86Codegen::generate(
                 }
 
                 out << "    call " << inst.label << "\n";
+
+                if (stackArgCount > 0) {
+                    out << "    addq $" << (stackArgCount * 8)
+                        << ", %rsp\n";
+                }
 
                 std::string destLoc = writeTarget(inst.destination, "ebx");
                 if (destLoc != "%eax") {

@@ -342,6 +342,22 @@ void testTypeCheckerAllowsIfElseWhereBothBranchesReturn() {
     }
 }
 
+void testStackArgumentCodegenForMoreThanFourParams() {
+    std::string assembly = compileToAssembly(
+        "fn sub6(a: i32, b: i32, c: i32, d: i32, e: i32, f: i32) -> i32 { "
+        "  return a - b - c - d - e - f; "
+        "}"
+        "fn main() -> i32 { return sub6(100, 1, 2, 3, 4, 5); }"
+    );
+
+    check(assembly.find("16(%rbp)") != std::string::npos,
+          "codegen: reads the 5th parameter from 16(%rbp)");
+    check(assembly.find("24(%rbp)") != std::string::npos,
+          "codegen: reads the 6th parameter from 24(%rbp)");
+    check(assembly.find("addq $16, %rsp") != std::string::npos,
+          "codegen: caller cleans up stack-passed arguments after the call");
+}
+
 void testTypeCheckerRejectsUnknownVariable() {
     expectProgramThrows(
         "type checker: rejects reference to undefined variable",
@@ -435,6 +451,7 @@ int main() {
     testIfElseCodegenEmitsBranches();
     testWhileCodegenEmitsBackEdge();
     testRegisterPressureForcesRealSpill();
+    testStackArgumentCodegenForMoreThanFourParams();
     testTypeCheckerRejectsUnknownVariable();
     testTypeCheckerRejectsReturnTypeMismatch();
     testTypeCheckerRejectsUndefinedFunctionCall();

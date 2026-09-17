@@ -14,10 +14,12 @@ public:
     // with its return value via the exit syscall.
     std::string generateEntryPoint(const std::string& entryFunction);
 
-    // Emits one function's label and body. Calling convention: up to four
-    // integer arguments are passed in edi, esi, edx, ecx (a restricted
+    // Emits one function's label and body. Calling convention: the first
+    // 4 integer arguments are passed in edi, esi, edx, ecx (a restricted
     // subset of the System V AMD64 ABI's integer argument registers);
-    // the return value comes back in eax.
+    // any beyond that are pushed onto the stack by the caller (caller
+    // cleans up) and read back at a fixed rbp-relative offset. The
+    // return value comes back in eax.
     //
     // Every function gets a standard rbp-based frame (push rbp; mov
     // rsp,rbp; sub $N,rsp if it has spill slots) so spilled values sit
