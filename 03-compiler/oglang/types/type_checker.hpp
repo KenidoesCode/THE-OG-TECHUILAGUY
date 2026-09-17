@@ -29,4 +29,11 @@ private:
     // offsets); the type checker only needs to answer "does this
     // struct have a field of this name, and what's its type."
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> structs;
+
+    // enum name -> (variant name -> ordinal). Ordinals aren't actually
+    // used by the type checker (every variant access is just "i32"),
+    // but are kept here rather than a plain set so this table has the
+    // same shape IR lowering needs and there's exactly one place that
+    // builds it (TypeChecker::check).
+    std::unordered_map<std::string, std::unordered_map<std::string, int>> enums;
 };

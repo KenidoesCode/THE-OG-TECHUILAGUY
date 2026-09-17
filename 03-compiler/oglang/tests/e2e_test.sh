@@ -94,6 +94,9 @@ check "structs: write and read back both fields of a local struct variable" \
 check "structs combined with register pressure and function calls" \
     "tests/programs/struct_with_calls.og" 39
 
+check "enums: variant access resolves to the correct declaration-order ordinal" \
+    "tests/programs/enum_variants.og" 42
+
 check "arrays: write through one loop, read back through a separate loop" \
     "tests/programs/arrays.og" 100
 

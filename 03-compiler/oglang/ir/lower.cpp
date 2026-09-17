@@ -9,7 +9,9 @@ std::string IRLowerer::freshLabel(const std::string& prefix) {
 IRFunction IRLowerer::lower(
     const Function& function,
     const std::unordered_map<std::string, std::vector<std::string>>&
-        structLayouts
+        structLayouts,
+    const std::unordered_map<std::string, std::unordered_map<std::string, int>>&
+        enumVariantsIn
 ) {
     IRFunction ir;
     ir.name = function.name;
@@ -22,6 +24,7 @@ IRFunction IRLowerer::lower(
     structFieldOrder = structLayouts;
     structVars.clear();
     structVarTypes.clear();
+    enumVariants = enumVariantsIn;
 
     for (size_t i = 0; i < function.params.size(); ++i) {
         ValueId dst = nextValue++;
@@ -462,6 +465,25 @@ ValueId IRLowerer::lowerExpr(
     }
 
     if (auto* fieldAccess = dynamic_cast<const FieldAccessExpr*>(&expr)) {
+        // Same struct-variable-takes-priority rule as the type
+        // checker: only fall back to enum-variant resolution when
+        // structVarName isn't a known struct variable.
+        if (!structVars.contains(fieldAccess->structVarName)) {
+            auto enumIt = enumVariants.find(fieldAccess->structVarName);
+
+            if (enumIt != enumVariants.end()) {
+                int ordinal =
+                    enumIt->second.at(fieldAccess->fieldName);
+
+                ValueId dst = nextValue++;
+                ir.instructions.push_back({
+                    OpCode::ConstI32, dst, -1, -1, ordinal, {}, ""
+                });
+
+                return dst;
+            }
+        }
+
         ValueId effectiveAddress = lowerFieldAddress(
             fieldAccess->structVarName, fieldAccess->fieldName, ir
         );

@@ -8,14 +8,17 @@ namespace {
 
 using StructTable =
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>>;
+using EnumTable =
+    std::unordered_map<std::string, std::unordered_map<std::string, int>>;
 
 class Checker {
 public:
     Checker(
         const std::unordered_map<std::string, FunctionSignature>& signatures,
-        const StructTable& structs
+        const StructTable& structs,
+        const EnumTable& enums
     )
-        : signatures(signatures), structs(structs) {}
+        : signatures(signatures), structs(structs), enums(enums) {}
 
     std::unordered_map<std::string, std::string> variables;
 
@@ -111,6 +114,28 @@ public:
 
         if (auto* fieldAccess =
                 dynamic_cast<const FieldAccessExpr*>(&expr)) {
+
+            // `Name.Variant` (an enum access) reuses the identical
+            // dot syntax as `structVar.field` (a struct field access);
+            // the two are told apart by whether `structVarName` is a
+            // declared struct *variable* or a declared enum *type*
+            // name. A struct variable takes priority so a real field
+            // access is never misread as an enum lookup.
+            if (!structVars.contains(fieldAccess->structVarName)) {
+                auto enumIt = enums.find(fieldAccess->structVarName);
+
+                if (enumIt != enums.end()) {
+                    if (!enumIt->second.contains(fieldAccess->fieldName)) {
+                        throw std::runtime_error(
+                            "Enum '" + fieldAccess->structVarName +
+                            "' has no variant named: " +
+                            fieldAccess->fieldName
+                        );
+                    }
+
+                    return "i32";
+                }
+            }
 
             return resolveFieldType(
                 fieldAccess->structVarName,
@@ -457,6 +482,7 @@ public:
 private:
     const std::unordered_map<std::string, FunctionSignature>& signatures;
     const StructTable& structs;
+    const EnumTable& enums;
 };
 
 // Base (non-aggregate) types a value can actually have today. A
@@ -500,11 +526,44 @@ bool blockAlwaysReturns(
 void TypeChecker::check(const Program& program) {
     signatures.clear();
     structs.clear();
+    enums.clear();
+
+    for (const auto& enumDecl : program.enums) {
+        if (enums.contains(enumDecl.name)) {
+            throw std::runtime_error(
+                "Enum redefined: " + enumDecl.name
+            );
+        }
+
+        std::unordered_map<std::string, int> variants;
+
+        for (size_t i = 0; i < enumDecl.variants.size(); ++i) {
+            const std::string& variant = enumDecl.variants[i];
+
+            if (variants.contains(variant)) {
+                throw std::runtime_error(
+                    "Variant redefined in enum '" + enumDecl.name +
+                    "': " + variant
+                );
+            }
+
+            variants[variant] = static_cast<int>(i);
+        }
+
+        enums[enumDecl.name] = std::move(variants);
+    }
 
     for (const auto& structDecl : program.structs) {
         if (structs.contains(structDecl.name)) {
             throw std::runtime_error(
                 "Struct redefined: " + structDecl.name
+            );
+        }
+
+        if (enums.contains(structDecl.name)) {
+            throw std::runtime_error(
+                "'" + structDecl.name +
+                "' is declared as both a struct and an enum"
             );
         }
 
@@ -579,7 +638,7 @@ void TypeChecker::check(const Program& program) {
     }
 
     for (const auto& function : program) {
-        Checker checker(signatures, structs);
+        Checker checker(signatures, structs, enums);
 
         for (const auto& param : function.params) {
             checker.variables[param.name] = param.type;

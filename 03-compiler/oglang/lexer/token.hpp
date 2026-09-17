@@ -7,6 +7,7 @@ enum class TokenKind {
     Return,
     Let,
     Struct,
+    Enum,
 
     TypeI32,
     TypePtr,

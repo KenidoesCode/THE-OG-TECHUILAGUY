@@ -1,0 +1,22 @@
+// Enum variants are named i32 constants, resolved entirely at compile
+// time to their declaration-order ordinal (0, 1, 2, ...) — not a
+// distinct nominal type, no storage, no exhaustiveness checking.
+// Confirms the ordinals are correct and that a variant access behaves
+// as an ordinary i32 value in arithmetic and comparisons.
+enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+fn main() -> i32 {
+    let a: i32 = Color.Red;
+    let b: i32 = Color.Green;
+    let c: i32 = Color.Blue;
+
+    if (c == 2) {
+        return a + b + c + 39;
+    }
+
+    return 0;
+}

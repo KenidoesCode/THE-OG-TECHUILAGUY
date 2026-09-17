@@ -50,12 +50,22 @@ int main(int argc, char** argv) {
             structLayouts[structDecl.name] = std::move(fieldNames);
         }
 
+        std::unordered_map<std::string, std::unordered_map<std::string, int>>
+            enumVariants;
+        for (const EnumDecl& enumDecl : program.enums) {
+            std::unordered_map<std::string, int> variants;
+            for (size_t i = 0; i < enumDecl.variants.size(); ++i) {
+                variants[enumDecl.variants[i]] = static_cast<int>(i);
+            }
+            enumVariants[enumDecl.name] = std::move(variants);
+        }
+
         X86Codegen codegen;
         std::string assembly = codegen.generateEntryPoint("main");
 
         for (const Function& function : program) {
             IRLowerer lowerer;
-            IRFunction ir = lowerer.lower(function, structLayouts);
+            IRFunction ir = lowerer.lower(function, structLayouts, enumVariants);
 
             LivenessAnalyzer liveness;
             auto ranges = liveness.analyze(ir);

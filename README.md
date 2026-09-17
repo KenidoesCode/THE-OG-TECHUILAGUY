@@ -158,7 +158,21 @@ type (there is no calling convention yet for passing or returning a
 multi-field aggregate) — both rejected explicitly by the type checker
 rather than left to silently miscompile.
 
-`03-compiler/oglang/tests/e2e_test.sh` runs twenty-two programs
+OGLang also has enums, but deliberately as narrow a feature as the
+name suggests: `enum Color { Red, Green, Blue }` at the top level
+declares named `i32` constants, not a distinct nominal type — there is
+no enum-typed variable, no storage, and no exhaustiveness or pattern
+matching. `Color.Red` reuses the identical dot syntax as struct field
+access (`FieldAccessExpr`, unchanged in the parser) and resolves
+entirely at compile time to its declaration-order ordinal (`0`, `1`,
+`2`, ...); when a struct variable and an enum type share a name, the
+struct variable takes priority, so real field access is never misread
+as an enum lookup. Because there's no storage at all, a variant access
+lowers straight to a `ConstI32` immediate — no `AddressOfI32`, no
+`PtrSubI32`, no memory access whatsoever, the concrete way this is
+lighter-weight than struct field access.
+
+`03-compiler/oglang/tests/e2e_test.sh` runs twenty-three programs
 end-to-end and checks their real process exit codes, including cases
 specifically chosen to fail under a naive calling convention, an
 unconstrained division lowering, superficial/fake spilling,
@@ -170,12 +184,12 @@ unpacking and argument marshaling, and
 two separate instances of the same 64-bit-pointer-truncation bug class
 (one in the pointer feature itself, one in array element addressing).
 Frontend and codegen invariants are additionally covered by
-`03-compiler/oglang/tests/unit_test.sh` (109 assertions). The type checker
+`03-compiler/oglang/tests/unit_test.sh` (121 assertions). The type checker
 also verifies every function returns on
 all paths (an `if` without an `else`, or a function ending in a bare
 `while` loop, is rejected — a loop may run zero times).
 Not yet implemented: generics, traits, ownership/borrowing, `for` loops,
-enums, modules, nested/struct-typed-array fields, struct function
+modules, nested/struct-typed-array fields, struct function
 parameters/returns, and any type other than `i32`/`ptr`/`constptr`.
 
 ## 🖥️ Techuilaguy OS — second deep system
@@ -281,7 +295,8 @@ heap, filesystem, or networking are implemented yet — see
 - [x] Runtime array bounds checking (out-of-range and negative indices both trap; see [ADR 0001](docs/ADR/0001-oglang-memory-model.md))
 - [x] `const`/`mut` pointer distinction (`constptr`/`ptr`), compile-time only, no runtime cost — a `ptr` widens into a `constptr`, writes through a `constptr` are rejected by the type checker; not ownership or borrowing (see [ADR 0001](docs/ADR/0001-oglang-memory-model.md))
 - [x] Struct types: `struct Name { field: type, ... }`, zero-initialized locals, field read/write (`p.x`, `p.x = v;`) reusing array address arithmetic with compile-time-constant field offsets (no bounds check needed); fields restricted to `i32`/`ptr`/`constptr`, structs not yet supported as function parameters/return types
-- [ ] `for` loops, enums, modules, nested/struct-typed-array fields, struct function parameters/returns
+- [x] Enum types: `enum Name { Variant, ... }`, `Name.Variant` reusing struct field-access dot syntax, resolved entirely at compile time to a declaration-order ordinal — named `i32` constants, not a distinct nominal type; no storage, no exhaustiveness/pattern matching
+- [ ] `for` loops, modules, nested/struct-typed-array fields, struct function parameters/returns
 - [ ] A real borrow-checking pass, generics, traits, safe concurrency
 - [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation
 - [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)

@@ -11,6 +11,7 @@ public:
 
     Function parseFunction();
     StructDecl parseStructDecl();
+    EnumDecl parseEnumDecl();
     Program parseProgram();
 
 private:

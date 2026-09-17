@@ -12,10 +12,15 @@ public:
     // declaration order — the field-index-to-byte-offset mapping is
     // program-wide (the same for every function), unlike `arrays`
     // below, which is per-function-local like any other variable.
+    // enumVariants maps an enum type name to (variant name -> ordinal)
+    // — also program-wide, used to resolve a `Name.Variant` access to
+    // a plain compile-time ConstI32, never a memory access.
     IRFunction lower(
         const Function& function,
         const std::unordered_map<std::string, std::vector<std::string>>&
-            structLayouts = {}
+            structLayouts = {},
+        const std::unordered_map<std::string, std::unordered_map<std::string, int>>&
+            enumVariants = {}
     );
 
 private:
@@ -32,6 +37,11 @@ private:
     // at the start of each lower() call from the constructor argument.
     std::unordered_map<std::string, std::vector<std::string>>
         structFieldOrder;
+
+    // enum type name -> (variant name -> ordinal). Set once at the
+    // start of each lower() call.
+    std::unordered_map<std::string, std::unordered_map<std::string, int>>
+        enumVariants;
 
     // struct-typed local variable name -> its field ValueIds, ordered
     // exactly as structFieldOrder[itsType]. A separate namespace from

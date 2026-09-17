@@ -77,12 +77,22 @@ std::string compileToAssembly(const std::string& source) {
         structLayouts[structDecl.name] = std::move(fieldNames);
     }
 
+    std::unordered_map<std::string, std::unordered_map<std::string, int>>
+        enumVariants;
+    for (const EnumDecl& enumDecl : program.enums) {
+        std::unordered_map<std::string, int> variants;
+        for (size_t i = 0; i < enumDecl.variants.size(); ++i) {
+            variants[enumDecl.variants[i]] = static_cast<int>(i);
+        }
+        enumVariants[enumDecl.name] = std::move(variants);
+    }
+
     X86Codegen codegen;
     std::string assembly = codegen.generateEntryPoint("main");
 
     for (const Function& function : program) {
         IRLowerer lowerer;
-        IRFunction ir = lowerer.lower(function, structLayouts);
+        IRFunction ir = lowerer.lower(function, structLayouts, enumVariants);
 
         LivenessAnalyzer liveness;
         auto ranges = liveness.analyze(ir);
@@ -747,6 +757,136 @@ void testTypeCheckerAllowsStructFieldRoundTrip() {
     }
 }
 
+void testParserParsesEnumDeclAndVariantAccess() {
+    Program program = parseProgram(
+        "enum Color { Red, Green, Blue } "
+        "fn main() -> i32 { "
+        "  let x: i32 = Color.Green; "
+        "  return x; "
+        "}"
+    );
+
+    check(program.enums.size() == 1,
+          "parser: 'enum Color { ... }' is parsed as a top-level enum declaration");
+    check(program.enums[0].name == "Color",
+          "parser: enum declaration records its name");
+    check(program.enums[0].variants.size() == 3 &&
+          program.enums[0].variants[0] == "Red" &&
+          program.enums[0].variants[1] == "Green" &&
+          program.enums[0].variants[2] == "Blue",
+          "parser: enum declaration records its variants in order");
+
+    auto* letX = dynamic_cast<LetStmt*>(program[0].body[0].get());
+    auto* variantAccess = letX != nullptr
+        ? dynamic_cast<FieldAccessExpr*>(letX->initializer.get())
+        : nullptr;
+    check(variantAccess != nullptr,
+          "parser: 'Color.Green' reuses FieldAccessExpr (same dot syntax as struct field access)");
+    check(variantAccess != nullptr &&
+          variantAccess->structVarName == "Color" &&
+          variantAccess->fieldName == "Green",
+          "parser: variant access records the enum name and variant name");
+}
+
+void testEnumCodegenResolvesVariantsToCompileTimeConstants() {
+    std::string assembly = compileToAssembly(
+        "enum Color { Red, Green, Blue } "
+        "fn main() -> i32 { "
+        "  return Color.Blue; "
+        "}"
+    );
+
+    // Blue is ordinal 2 — a variant access must lower to a plain
+    // immediate move, never a memory load, since enums have no
+    // storage at all (unlike a struct field, which is a real address
+    // computation).
+    check(assembly.find("$2") != std::string::npos,
+          "codegen: an enum variant access lowers to its ordinal as an immediate constant");
+    check(assembly.find("subq") == std::string::npos,
+          "codegen: an enum variant access emits no address arithmetic "
+          "(it is a constant, not a memory location)");
+}
+
+void testTypeCheckerRejectsUnknownEnumVariant() {
+    expectProgramThrows(
+        "type checker: rejects accessing a variant that doesn't exist on the enum",
+        "enum Color { Red, Green, Blue } "
+        "fn main() -> i32 { return Color.Purple; }"
+    );
+}
+
+void testTypeCheckerRejectsDuplicateEnumVariantNames() {
+    expectProgramThrows(
+        "type checker: rejects an enum with two variants sharing a name",
+        "enum Bad { X, X } "
+        "fn main() -> i32 { return 0; }"
+    );
+}
+
+void testTypeCheckerRejectsDuplicateEnumNames() {
+    expectProgramThrows(
+        "type checker: rejects an enum redefined under the same name",
+        "enum Color { Red } "
+        "enum Color { Blue } "
+        "fn main() -> i32 { return 0; }"
+    );
+}
+
+void testTypeCheckerPrefersStructVariableOverEnumOfTheSameName() {
+    try {
+        // Both a struct type and an enum type happen to be named
+        // "Color", and there is also a variable named "Color" (of the
+        // struct type) — Color.x must resolve as struct field access
+        // (the declared variable), not be misread as an enum variant
+        // lookup just because an enum of that name also exists.
+        Program program = parseProgram(
+            "struct Color { x: i32 } "
+            "enum Palette { Red, Green } "
+            "fn main() -> i32 { "
+            "  let Color: Color; "
+            "  Color.x = 5; "
+            "  return Color.x; "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true,
+              "type checker: a struct variable takes priority over an "
+              "identically-named enum type for dot-access resolution");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: a struct variable takes priority over an "
+                  "identically-named enum type for dot-access resolution"
+                  " (threw: ") + e.what() + ")");
+    }
+}
+
+void testTypeCheckerAllowsEnumVariantRoundTrip() {
+    try {
+        Program program = parseProgram(
+            "enum Color { Red, Green, Blue } "
+            "fn main() -> i32 { "
+            "  let x: i32 = Color.Red; "
+            "  let y: i32 = Color.Blue; "
+            "  return y - x; "
+            "}"
+        );
+
+        TypeChecker checker;
+        checker.check(program);
+
+        check(true, "type checker: accepts a well-typed enum variant round trip");
+    } catch (const std::exception& e) {
+        check(false,
+              std::string(
+                  "type checker: accepts a well-typed enum variant round trip"
+                  " (threw: ") + e.what() + ")");
+    }
+}
+
 void testTypeCheckerRejectsDereferenceOfNonPointer() {
     expectProgramThrows(
         "type checker: rejects dereferencing a plain i32 value",
@@ -1017,6 +1157,13 @@ int main() {
     testTypeCheckerRejectsDuplicateStructFieldNames();
     testTypeCheckerRejectsStructTypedFunctionParameter();
     testTypeCheckerAllowsStructFieldRoundTrip();
+    testParserParsesEnumDeclAndVariantAccess();
+    testEnumCodegenResolvesVariantsToCompileTimeConstants();
+    testTypeCheckerRejectsUnknownEnumVariant();
+    testTypeCheckerRejectsDuplicateEnumVariantNames();
+    testTypeCheckerRejectsDuplicateEnumNames();
+    testTypeCheckerPrefersStructVariableOverEnumOfTheSameName();
+    testTypeCheckerAllowsEnumVariantRoundTrip();
     testTypeCheckerRejectsDereferenceOfNonPointer();
     testTypeCheckerRejectsAddressOfUndeclaredVariable();
     testTypeCheckerRejectsStoreThroughNonPointer();

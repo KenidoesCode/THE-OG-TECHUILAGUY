@@ -261,8 +261,20 @@ struct StructDecl {
     std::vector<Param> fields;
 };
 
-// A program is one or more struct type definitions plus one or more
-// functions. Struct definitions are program-wide (visible to every
+// enum Name { Variant1, Variant2, ... } — a top-level declaration of
+// named integer constants, NOT a distinct nominal type: there is no
+// enum-typed variable, no storage, and no exhaustiveness or pattern
+// matching of any kind. `Name.Variant` (reusing the same dot syntax as
+// struct field access — see FieldAccessExpr) resolves entirely at
+// compile time to its declaration-order ordinal (0, 1, 2, ...) and is
+// otherwise a plain `i32` value, indistinguishable from any other.
+struct EnumDecl {
+    std::string name;
+    std::vector<std::string> variants;
+};
+
+// A program is one or more struct/enum type definitions plus one or
+// more functions. Type definitions are program-wide (visible to every
 // function regardless of declaration order, same as function
 // signatures); Program keeps a vector<Function>-compatible interface
 // (size/operator[]/begin/end/push_back) so the many existing call
@@ -270,6 +282,7 @@ struct StructDecl {
 // working unchanged against the .functions half.
 struct Program {
     std::vector<StructDecl> structs;
+    std::vector<EnumDecl> enums;
     std::vector<Function> functions;
 
     size_t size() const { return functions.size(); }

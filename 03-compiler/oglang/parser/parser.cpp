@@ -48,12 +48,39 @@ Program Parser::parseProgram() {
     while (peek().kind != TokenKind::End) {
         if (peek().kind == TokenKind::Struct) {
             program.structs.push_back(parseStructDecl());
+        } else if (peek().kind == TokenKind::Enum) {
+            program.enums.push_back(parseEnumDecl());
         } else {
             program.push_back(parseFunction());
         }
     }
 
     return program;
+}
+
+EnumDecl Parser::parseEnumDecl() {
+    expect(TokenKind::Enum);
+
+    std::string name = expect(TokenKind::Identifier).text;
+
+    expect(TokenKind::LBrace);
+
+    std::vector<std::string> variants;
+
+    if (peek().kind != TokenKind::RBrace) {
+        while (true) {
+            variants.push_back(expect(TokenKind::Identifier).text);
+
+            if (match(TokenKind::Comma))
+                continue;
+
+            break;
+        }
+    }
+
+    expect(TokenKind::RBrace);
+
+    return EnumDecl{name, std::move(variants)};
 }
 
 StructDecl Parser::parseStructDecl() {
