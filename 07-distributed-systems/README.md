@@ -37,6 +37,18 @@ and [`docs/ADR/0009-raft-leader-election.md`](../docs/ADR/0009-raft-leader-elect
   RPCs, term-based safety (a higher observed term always steps a node
   down to Follower), and a `RaftCluster` harness driving every node
   forward together tick by tick.
+- `rpc/auth.hpp`/`.cpp`: authenticated message envelopes — a real
+  integration of Layer 10's HMAC-SHA256 into Layer 7, wrapping message
+  bytes with an HMAC tag so tampering or forgery by anyone without the
+  shared key is detected. Not wired into `RpcClient`/`RpcServer`'s
+  default path yet (no key-distribution story exists) — see
+  [`docs/ADR/0012-authenticated-rpc.md`](../docs/ADR/0012-authenticated-rpc.md).
+- 10 hosted unit assertions for authenticated envelopes
+  (`tests/auth_test.cpp`/`auth_test.sh`): round trip, wrong-key
+  rejection, tampered-message and tampered-tag detection, truncated-
+  input rejection, and a full realistic pipeline (build a real
+  `RpcRequest`, serialize, authenticate, verify, parse) including a
+  forged-message rejection test.
 - 10 hosted unit assertions (`tests/raft_test.cpp`/`raft_test.sh`):
   3/5-node clusters converge to exactly one leader; a single-node
   cluster becomes its own leader immediately; the core safety property
@@ -66,4 +78,5 @@ and [`docs/ADR/0009-raft-leader-election.md`](../docs/ADR/0009-raft-leader-elect
 ```sh
 bash tests/rpc_test.sh    # hosted tests, fully deterministic (seeded), no hardware/network needed
 bash tests/raft_test.sh   # hosted Raft leader-election tests, fully deterministic
+bash tests/auth_test.sh   # hosted authenticated-envelope tests (HMAC-SHA256 integration)
 ```
