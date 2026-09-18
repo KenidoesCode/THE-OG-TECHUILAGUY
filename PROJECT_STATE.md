@@ -106,8 +106,15 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | NIC driver, TCP, sockets API, routing, ARP cache | PLANNED | no network interface card driver exists anywhere in the repository; TCP's stateful protocol is deliberately deferred rather than attempted partially |
 | TLS/QUIC/HTTP (FR-NET-2), gamified network simulator (FR-NET-3) | PLANNED | both depend on TCP, which doesn't exist yet |
 
-## Layers 7-21 (Distributed Systems, Storage, Security,
-Cryptography/PQC, Formal Verification, Cloud, Developer Ecosystem,
+## Layer 10 (Cryptography & PQC)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **SHA-256** (FIPS 180-4), from-scratch, streaming API | TESTED | `10-cryptography/hashing/`; `tests/sha256_test.sh` — 7 hosted assertions against the standard's own published known-answer test vectors (empty string, "abc", a two-block 56-byte message, one million repeated 'a's) plus incremental-vs-one-shot equivalence and reset() correctness. See [`docs/ADR/0006-cryptography-hashing.md`](docs/ADR/0006-cryptography-hashing.md) |
+| AEAD, PKI, HMAC/MAC, key exchange, ML-KEM, ML-DSA, SLH-DSA, hybrid PQC | PLANNED | not started; SHA-256 is a prerequisite primitive for several of these (e.g. HMAC), not yet built upon |
+
+## Layers 7-9, 11-21 (Distributed Systems, Storage, Security,
+Formal Verification, Cloud, Developer Ecosystem,
 AI/ML, Quantum, Robotics, Graphics, Scientific Computing, Finance,
 Space Systems, VLEO research)
 

@@ -343,6 +343,7 @@ heap, filesystem, or networking are implemented yet — see
 - [x] Techuilaguy OS — a real ELF32/i386 loader (`ET_EXEC`/`EM_386` only; overflow-safe header/segment validation, per-segment write permissions genuinely enforced by the CPU, BSS zero-init, full rollback on failure; verified by 22 hosted unit tests and two real ELF binaries booted under QEMU — one proving a real writable data segment, the other proving a write into a read-execute-only code segment faults — see [ADR 0004](docs/ADR/0004-elf-loader.md))
 - [ ] Techuilaguy OS — storage/network drivers, filesystem, `exec()`/process replacement, init/shell
 - [x] Layer 6 Networking — a real, standards-based protocol codec layer (Ethernet/ARP/IPv4/ICMP/UDP parsing, serialization, and RFC 1071 checksums; 40 hosted unit tests covering round-trips and every realistic rejection case); no NIC driver, TCP, or sockets API yet (see [ADR 0005](docs/ADR/0005-networking-protocol-layer.md))
+- [x] Layer 10 Cryptography — a real, from-scratch SHA-256 (FIPS 180-4) implementation verified against the standard's own known-answer test vectors (7 hosted tests); no AEAD/PKI/PQC yet (see [ADR 0006](docs/ADR/0006-cryptography-hashing.md))
 - [ ] Distributed Systems, Storage, Cloud, AI, Quantum, Space Systems
 
 See [`PROJECT_STATE.md`](./PROJECT_STATE.md) for the full, honestly-labeled
