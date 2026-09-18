@@ -131,6 +131,27 @@ else
     echo "[PASS] boot: code after the out-of-region read never ran — per-process address-space isolation is real"
 fi
 
+# --- Real ELF32/i386 loading (distinct from every ring-3 test above,
+# which all copy a pre-flattened flat binary into one page): the
+# kernel parses a genuine ELF header and program header table and maps
+# each PT_LOAD segment itself, with its own permissions, via the real
+# ELF loader (elf/elf.hpp, scheduler_create_elf_user_task).
+check "\[TEST\] loaded real ELF task 'elf_hello'" \
+    "the kernel's own ELF loader successfully validated and loaded a real, multi-segment ELF32/i386 image"
+
+check "DG" \
+    "elf_hello reads its own .data segment ('D'), writes to it ('G'), and reads the write back — proving the data segment is real, distinct from .text, readable, and writable memory"
+
+check "W" \
+    "elf_write_to_code reached the kernel via SYS_WRITE from its own loaded, real ELF code segment before attempting to write into it"
+
+if grep -q "^Q\$" "$LOG"; then
+    echo "[FAIL] boot: ELF code-segment write protection did not actually block the write — code after it ran"
+    FAIL=1
+else
+    echo "[PASS] boot: code after the write into the code segment never ran — an ELF segment's permissions (R+X, no W) are genuinely enforced by the CPU, not merely recorded by the loader and ignored"
+fi
+
 check "task A exited after 5 run(s)" \
     "a task actually ran, hit its exit condition, and called scheduler_exit"
 

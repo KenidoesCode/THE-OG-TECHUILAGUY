@@ -4,6 +4,7 @@
 #include "../gdt/gdt.hpp"
 #include "../memory/memory.hpp"
 #include "../paging/paging.hpp"
+#include "../elf/elf.hpp"
 
 #include <stdint.h>
 
@@ -26,8 +27,17 @@ struct Task {
     ProcessState state;
     uint32_t savedEsp;
     bool isUser;
-    uintptr_t userCodePage;   // 0 for kernel-mode tasks.
+    uintptr_t userCodePage;   // 0 for kernel-mode tasks and ELF-loaded ones.
     uintptr_t userStackPage;  // 0 for kernel-mode tasks.
+
+    // Physical pages backing an ELF-loaded task's PT_LOAD segments —
+    // unused (elfPageCount == 0) for a kernel-mode task or one created
+    // via the flat-binary path (scheduler_create_user_task), which
+    // uses userCodePage instead. Tracked separately from userCodePage
+    // because an ELF image can span more than one physical page across
+    // more than one segment (see elf/elf.hpp's ELF_MAX_PAGES).
+    uintptr_t elfPages[ELF_MAX_PAGES];
+    uint32_t elfPageCount;
 
     // CR3 value for this task: the shared kernel base address space
     // for a kernel-mode task, or this task's own private address space
@@ -181,6 +191,11 @@ void reclaimSlot(int slot) {
         memory_free_page(tasks[slot].userStackPage);
         tasks[slot].userStackPage = 0;
     }
+    for (uint32_t i = 0; i < tasks[slot].elfPageCount; ++i) {
+        memory_free_page(tasks[slot].elfPages[i]);
+        tasks[slot].elfPages[i] = 0;
+    }
+    tasks[slot].elfPageCount = 0;
     if (tasks[slot].isUser && tasks[slot].addressSpace != 0) {
         paging_destroy_address_space(tasks[slot].addressSpace);
     }
@@ -210,6 +225,7 @@ extern "C" void scheduler_init() {
         t.isUser = false;
         t.userCodePage = 0;
         t.userStackPage = 0;
+        t.elfPageCount = 0;
         t.addressSpace = paging_kernel_address_space();
     }
 
@@ -311,6 +327,137 @@ int scheduler_create_user_task(const uint8_t* code, uint32_t codeLen) {
     // space's tables translate USER_CODE_VADDR/USER_STACK_PAGE_VADDR
     // to codePage/stackPage at all.
     prepareUserInitialFrame(tasks[slot], USER_CODE_VADDR, USER_STACK_TOP_VADDR);
+
+    return static_cast<int>(pid);
+}
+
+int scheduler_create_elf_user_task(const uint8_t* image, uint32_t imageSize) {
+    ElfLoadPlan plan;
+    ElfError validation = elf_validate_and_plan(image, imageSize, plan);
+    if (validation != ElfError::None) {
+        return -1;
+    }
+
+    int slot = findSlot(ProcessState::Unused);
+    if (slot < 0) slot = findSlot(ProcessState::Dead);
+    if (slot < 0) return -1;
+
+    uint32_t addressSpace = paging_create_address_space();
+    if (addressSpace == 0) {
+        return -1;
+    }
+
+    // Built up locally and only committed into tasks[slot] once every
+    // segment and the stack are fully allocated and mapped — a failure
+    // partway through unwinds everything gathered so far, never
+    // leaving a half-built process behind or losing a previous
+    // occupant's still-live resources.
+    uintptr_t pages[ELF_MAX_PAGES];
+    uint32_t pageCount = 0;
+
+    auto rollback = [&]() {
+        for (uint32_t i = 0; i < pageCount; ++i) {
+            memory_free_page(pages[i]);
+        }
+        paging_destroy_address_space(addressSpace);
+    };
+
+    for (uint32_t s = 0; s < plan.segmentCount; ++s) {
+        const ElfSegmentPlan& segment = plan.segments[s];
+
+        uint32_t pagesNeeded = (segment.memSize + PAGE_SIZE - 1) / PAGE_SIZE;
+        if (pagesNeeded == 0) {
+            pagesNeeded = 1;
+        }
+
+        for (uint32_t p = 0; p < pagesNeeded; ++p) {
+            if (pageCount >= ELF_MAX_PAGES) {
+                rollback();
+                return -1;
+            }
+
+            uintptr_t page = memory_alloc_page();
+            if (page == 0) {
+                rollback();
+                return -1;
+            }
+            pages[pageCount++] = page;
+
+            // Zero the whole page first — this both realizes the
+            // segment's BSS (the memsz - filesz tail that must start
+            // zeroed, per the ELF format) and prevents a recycled
+            // physical page from leaking a previous process's leftover
+            // bytes into this one, exactly the same anti-leak
+            // discipline the flat-binary path already applies to its
+            // stack page.
+            uint8_t* dst = reinterpret_cast<uint8_t*>(page);
+            for (uint32_t i = 0; i < PAGE_SIZE; ++i) {
+                dst[i] = 0;
+            }
+
+            uint32_t pageStartInSegment = p * PAGE_SIZE;
+            if (pageStartInSegment < segment.fileSize) {
+                uint32_t bytesAvailable =
+                    segment.fileSize - pageStartInSegment;
+                uint32_t bytesToCopy =
+                    bytesAvailable < PAGE_SIZE ? bytesAvailable : PAGE_SIZE;
+
+                const uint8_t* src =
+                    image + segment.fileOffset + pageStartInSegment;
+
+                for (uint32_t i = 0; i < bytesToCopy; ++i) {
+                    dst[i] = src[i];
+                }
+            }
+
+            uint32_t vaddr = segment.virtualAddress + pageStartInSegment;
+
+            if (!paging_map_user_page(
+                    addressSpace, vaddr, static_cast<uint32_t>(page),
+                    segment.writable)) {
+                rollback();
+                return -1;
+            }
+        }
+    }
+
+    uintptr_t stackPage = memory_alloc_page();
+    if (stackPage == 0) {
+        rollback();
+        return -1;
+    }
+
+    uint8_t* stackBytes = reinterpret_cast<uint8_t*>(stackPage);
+    for (uint32_t i = 0; i < PAGE_SIZE; ++i) {
+        stackBytes[i] = 0;
+    }
+
+    if (!paging_map_user_page(
+            addressSpace, ELF_STACK_PAGE_VADDR,
+            static_cast<uint32_t>(stackPage))) {
+        memory_free_page(stackPage);
+        rollback();
+        return -1;
+    }
+
+    // Every resource this task needs now exists and is fully mapped —
+    // safe to reclaim whatever the slot previously held and commit.
+    reclaimSlot(slot);
+
+    uint32_t pid = nextPid++;
+
+    tasks[slot].pid = pid;
+    tasks[slot].state = ProcessState::Ready;
+    tasks[slot].isUser = true;
+    tasks[slot].userCodePage = 0;
+    tasks[slot].userStackPage = stackPage;
+    tasks[slot].elfPageCount = pageCount;
+    for (uint32_t i = 0; i < pageCount; ++i) {
+        tasks[slot].elfPages[i] = pages[i];
+    }
+    tasks[slot].addressSpace = addressSpace;
+
+    prepareUserInitialFrame(tasks[slot], plan.entryPoint, ELF_STACK_TOP_VADDR);
 
     return static_cast<int>(pid);
 }

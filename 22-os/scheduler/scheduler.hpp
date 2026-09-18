@@ -35,6 +35,23 @@ int scheduler_create_task(TaskEntry entry);
 // allocated.
 int scheduler_create_user_task(const uint8_t* code, uint32_t codeLen);
 
+// Creates a new ring-3 task from a real ELF32/i386 ET_EXEC image (see
+// elf/elf.hpp for the exact supported subset and its v1 limits).
+// Validates the image (elf_validate_and_plan) before touching any
+// kernel resource; on success, allocates one physical page per page
+// of PT_LOAD content plus one stack page, maps each PT_LOAD segment
+// at its own virtual address with its own W permission (derived from
+// the segment's PF_W flag — this architecture has no NX bit, so
+// executability itself can't be hardware-enforced either way), copies
+// each segment's file bytes and zero-fills the remainder (memsz -
+// filesz, i.e. BSS) before the page is ever mapped user-accessible,
+// and starts the task at the ELF entry point. Any failure partway
+// through (a validation error, or a physical page allocation running
+// out) rolls back everything already allocated for this attempt and
+// returns -1 — never a partially-constructed process. Returns the new
+// task's pid, or -1 on any failure.
+int scheduler_create_elf_user_task(const uint8_t* image, uint32_t imageSize);
+
 // Called by interrupt_handler when the currently running task must be
 // terminated non-cooperatively — a ring-3 task that faulted (see
 // interrupts.cpp) or a SYS_EXIT syscall — rather than via the

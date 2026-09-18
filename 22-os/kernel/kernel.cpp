@@ -25,6 +25,15 @@ extern "C" {
     extern const uint8_t _binary_userland_kernel_peek_bin_end[];
     extern const uint8_t _binary_userland_neighbor_peek_bin_start[];
     extern const uint8_t _binary_userland_neighbor_peek_bin_end[];
+
+    // Real ELF32/i386 images (never flattened — see the Makefile's
+    // ELF_USERLAND_EMBED_OBJECTS rule), consumed by the kernel's own
+    // ELF loader (elf/elf.hpp, scheduler_create_elf_user_task) rather
+    // than copied verbatim into one page.
+    extern const uint8_t _binary_userland_elf_hello_elf_start[];
+    extern const uint8_t _binary_userland_elf_hello_elf_end[];
+    extern const uint8_t _binary_userland_elf_write_to_code_elf_start[];
+    extern const uint8_t _binary_userland_elf_write_to_code_elf_end[];
 }
 
 namespace {
@@ -319,6 +328,36 @@ extern "C" void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write(", ");
     writeDecimal(neighborPeekLen);
     serial_write(" bytes)\n");
+
+    serial_write("------------------------------------\n");
+    serial_write("TECHUILAGUY OS ELF LOADER TEST\n");
+    serial_write("------------------------------------\n");
+
+    uint32_t elfHelloLen = static_cast<uint32_t>(
+        _binary_userland_elf_hello_elf_end -
+        _binary_userland_elf_hello_elf_start
+    );
+    uint32_t elfWriteToCodeLen = static_cast<uint32_t>(
+        _binary_userland_elf_write_to_code_elf_end -
+        _binary_userland_elf_write_to_code_elf_start
+    );
+
+    int elfHelloPid = scheduler_create_elf_user_task(
+        _binary_userland_elf_hello_elf_start, elfHelloLen
+    );
+    int elfWriteToCodePid = scheduler_create_elf_user_task(
+        _binary_userland_elf_write_to_code_elf_start, elfWriteToCodeLen
+    );
+
+    serial_write("[TEST] loaded real ELF task 'elf_hello' (pid ");
+    writeDecimal(static_cast<uint32_t>(elfHelloPid));
+    serial_write(", ");
+    writeDecimal(elfHelloLen);
+    serial_write(" bytes) and 'elf_write_to_code' (pid ");
+    writeDecimal(static_cast<uint32_t>(elfWriteToCodePid));
+    serial_write(", ");
+    writeDecimal(elfWriteToCodeLen);
+    serial_write(" bytes) via the real ELF32/i386 loader\n");
 
     pic_unmask_irq(0);
     serial_write("[TEST] IRQ0 unmasked\n");

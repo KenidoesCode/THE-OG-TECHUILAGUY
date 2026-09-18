@@ -56,10 +56,22 @@ uint32_t paging_create_address_space();
 // inside the shared kernel region — that mapping is fixed and shared,
 // never per-address-space. Returns false if a physical page for a new
 // page table could not be allocated.
+//
+// `writable` controls the page's W bit (default true, preserving every
+// existing caller's behavior unchanged). This 32-bit, non-PAE paging
+// architecture has no execute-disable (NX) bit at all — NX requires
+// PAE or long mode — so there is no way to mark a page non-executable
+// at the hardware level; a "code" page here is distinguished from a
+// "data" page only by whether it's writable, not by whether it can be
+// executed. This is an honest architectural limit, not an oversight:
+// see docs/ADR/0004-elf-loader.md for where this matters (an ELF
+// segment's PF_X flag records executability in the loader's own
+// bookkeeping, but cannot be enforced by the CPU on this target).
 bool paging_map_user_page(
     uint32_t addressSpace,
     uint32_t virtualAddress,
-    uint32_t physicalPage
+    uint32_t physicalPage,
+    bool writable = true
 );
 
 // Loads CR3. Called by the scheduler on every task switch so the

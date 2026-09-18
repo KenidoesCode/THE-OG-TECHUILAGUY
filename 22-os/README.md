@@ -4,10 +4,10 @@ A from-first-principles operating-system prototype inside THE OG TECHUILAGUY.
 
 **Status: PROTOTYPE.** Boots under QEMU and passes automated tests that
 assert on real serial console output, real per-process address-space
-isolation, real ring-3 privilege enforcement, and real injected PS/2
-input — not just that the kernel prints a banner. Not a production OS:
-no kernel heap, no storage or network drivers, no filesystem, no
-networking.
+isolation, real ring-3 privilege enforcement, real ELF32/i386 loading,
+and real injected PS/2 input — not just that the kernel prints a
+banner. Not a production OS: no storage or network drivers, no
+filesystem, no `exec()`/process replacement, no dynamic linking.
 
 ## Implemented and tested
 
@@ -142,11 +142,54 @@ networking.
   identity-mapped kernel address space: allocate two blocks, write
   through both, confirm neither corrupts the other, free one, and
   confirm reallocating the same size reuses the exact freed block.
+- **a real ELF32/i386 loader**: `elf/` parses and validates a genuine
+  ELF header and program header table — magic, class, endianness,
+  version, type (`ET_EXEC` only), machine (`EM_386` only), and every
+  `PT_LOAD` segment's offset/size/address/alignment, with every check
+  done via wide (64-bit) intermediate arithmetic so a crafted
+  offset+size pair can't integer-overflow past a bounds check — before
+  `scheduler_create_elf_user_task` (`scheduler/scheduler.cpp`) touches
+  any kernel resource. Once validated, each segment gets its own
+  physical pages (zeroed first, both to realize BSS's zero-init
+  requirement and to prevent a recycled page leaking a previous
+  process's contents) and its own permissions — `paging_map_user_page`
+  gained a `writable` parameter driven by each segment's `PF_W` flag,
+  so a code segment is genuinely read+execute-only and a data segment
+  is genuinely writable, not just labeled that way. (This is 32-bit,
+  non-PAE paging: there is no NX bit at all, so executability itself
+  can't be hardware-enforced — an honest architectural limit, not an
+  oversight; see docs/ADR/0004-elf-loader.md.) A failure at any point —
+  a malformed image, or a physical-page allocation running out
+  partway through — unwinds every page and address space already
+  allocated for that attempt rather than leaving a half-built process
+  or leaking pages.
+  The validation logic itself is hardware-independent and unit-tested
+  with a hosted compiler against 22 synthetic ELF images
+  (`tests/elf_test.cpp`/`elf_test.sh`) covering every rejection case:
+  bad magic, wrong class/endianness/machine/type, a truncated header,
+  a program-header table or segment offset outside the image (plain
+  and integer-overflow-inducing), `memsz < filesz`, unaligned or
+  out-of-window virtual addresses, overlapping segments, exceeding the
+  v1 segment/page-count limits, and an entry point outside any
+  executable segment. `tests/boot_test.sh` additionally boots two real
+  ELF binaries (`userland/elf_hello.S`, `elf_write_to_code.S` — still
+  hand-written assembly, linked with an explicit `PHDRS`-based script
+  into genuine multi-segment ELF files, never flattened): one reads,
+  writes, and reads back its own `.data` segment to prove it's real,
+  distinct, writable memory; the other deliberately writes into its
+  own read-execute-only code segment and is confirmed to fault with
+  #PF and be killed in isolation — the concrete negative proof that
+  segment permissions are enforced by the CPU, not merely recorded by
+  the loader.
 
 ## Not yet implemented
 
-- more than one userland program's worth of syscalls (no exec, no
-  fork, no IPC)
+- `exec()`/process replacement, fork, IPC (the ELF loader creates a
+  *new* task; there is no syscall for an existing task to load and
+  replace itself with an ELF image)
+- dynamic linking, relocations, PIE/`ET_DYN` ELF images, or a
+  general-purpose ELF loader (v1 is ET_EXEC/EM_386 only, with fixed
+  small segment/page-count limits — see docs/ADR/0004-elf-loader.md)
 - shifted/uppercase keyboard input, modifier keys, non-US layouts
 - drivers beyond the timer, PIC, and keyboard (no storage, no
   networking)
@@ -167,4 +210,5 @@ bash tests/boot_test.sh                  # automated boot + scheduler lifecycle 
 bash tests/keyboard_test.sh              # boots + injects real scancodes via QEMU's monitor
 bash tests/keyboard_translation_test.sh  # hosted unit test, no boot cycle needed
 bash tests/heap_test.sh                  # hosted unit test of the kmalloc/kfree allocator logic
+bash tests/elf_test.sh                   # hosted unit test of ELF header/segment validation
 ```

@@ -97,7 +97,8 @@ uint32_t paging_create_address_space() {
 bool paging_map_user_page(
     uint32_t addressSpace,
     uint32_t virtualAddress,
-    uint32_t physicalPage
+    uint32_t physicalPage,
+    bool writable
 ) {
     if (virtualAddress % PAGE_SIZE_BYTES != 0 ||
         physicalPage % PAGE_SIZE_BYTES != 0) {
@@ -133,7 +134,8 @@ bool paging_map_user_page(
 
     uint32_t pteIndex = pteIndexFor(virtualAddress);
     table[pteIndex] = (physicalPage & PAGE_ADDRESS_MASK) |
-                       PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
+                       PAGE_PRESENT | PAGE_USER |
+                       (writable ? PAGE_WRITABLE : 0);
 
     asm volatile("invlpg (%0)" : : "r"(virtualAddress) : "memory");
 

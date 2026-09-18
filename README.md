@@ -340,7 +340,8 @@ heap, filesystem, or networking are implemented yet — see
 - [x] Techuilaguy OS — GDT + TSS + ring-3 userspace + syscall entry (verified against a real ring-3 program and a real privilege-violation fault, both against actual boot behavior)
 - [x] Techuilaguy OS — real paging with genuine per-process address spaces (own page directory/table per task, CR3 switched per context switch; verified against a real ring-3 program reading unmapped kernel memory and a second reading past its own private region, both faulting and killed in isolation)
 - [x] Techuilaguy OS — a real kernel heap (`kmalloc`/`kfree`, first-fit free-list with real block splitting and coalescing on top of the physical page allocator; verified both by 16 hosted unit tests of the allocator logic and by a real boot-time alloc/write/free/reuse self-test)
-- [ ] Techuilaguy OS — storage/network drivers, filesystem, ELF loader, process creation, init/shell
+- [x] Techuilaguy OS — a real ELF32/i386 loader (`ET_EXEC`/`EM_386` only; overflow-safe header/segment validation, per-segment write permissions genuinely enforced by the CPU, BSS zero-init, full rollback on failure; verified by 22 hosted unit tests and two real ELF binaries booted under QEMU — one proving a real writable data segment, the other proving a write into a read-execute-only code segment faults — see [ADR 0004](docs/ADR/0004-elf-loader.md))
+- [ ] Techuilaguy OS — storage/network drivers, filesystem, `exec()`/process replacement, init/shell
 - [ ] Techuilaguy L1, Storage, Cloud, AI, Quantum, Space Systems
 
 See [`PROJECT_STATE.md`](./PROJECT_STATE.md) for the full, honestly-labeled
