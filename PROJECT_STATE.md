@@ -137,8 +137,15 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | **Write-ahead log** (CRC-32-checked, crash-tested recovery) + **KV store** built on it | TESTED | `08-storage/wal/`, `kv/`; `tests/storage_test.sh` — 23 hosted assertions incl. genuine crash simulation (a torn trailing record and a bit-flipped checksum, both produced by directly modifying on-disk bytes) and full-restart/repeated-restart recovery correctness. Record encoding reuses Layer 7's serialization codec directly. See [`docs/ADR/0010-storage-wal.md`](docs/ADR/0010-storage-wal.md) |
 | Block-device abstraction, compaction, transactions/MVCC, indexes/query engine, replication | PLANNED | operates directly on a host file via fstream, not a block-level interface; no transaction/concurrency-control/replication layer exists yet |
 
-## Layers 9, 11-12, 14-21 (Security,
-Formal Verification, Cloud,
+## Layer 11 (Formal Verification & Reliability)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **Property-based testing framework**, applied to 5 real subsystems across 4 layers + the OS | TESTED | `11-verification/`; `tests/property_tests.sh` — seeded/reproducible generation (`Random`/`forAll`), applied to: RPC serialization round-trip (Layer 7), HMAC determinism (Layer 10), WAL append/recover exactness against real disk I/O (Layer 8), and fuzz-style crash-robustness of the ELF loader and every network parser (Layer 6) across thousands of random buffers each — all passed on first run. See [`docs/ADR/0013-property-testing.md`](docs/ADR/0013-property-testing.md) |
+| Shrinking, model checking, symbolic execution, coverage-guided fuzzing, chaos testing infrastructure | PLANNED | not started (Raft's own deterministic-simulation fault injection in Layer 7 is the only chaos-testing-adjacent infrastructure that exists) |
+
+## Layers 9, 12, 14-21 (Security,
+Cloud,
 AI/ML, Quantum, Robotics, Graphics, Scientific Computing, Finance,
 Space Systems, VLEO research)
 
