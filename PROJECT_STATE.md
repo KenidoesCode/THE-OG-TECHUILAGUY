@@ -113,8 +113,15 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | **SHA-256** (FIPS 180-4), from-scratch, streaming API | TESTED | `10-cryptography/hashing/`; `tests/sha256_test.sh` — 7 hosted assertions against the standard's own published known-answer test vectors (empty string, "abc", a two-block 56-byte message, one million repeated 'a's) plus incremental-vs-one-shot equivalence and reset() correctness. See [`docs/ADR/0006-cryptography-hashing.md`](docs/ADR/0006-cryptography-hashing.md) |
 | AEAD, PKI, HMAC/MAC, key exchange, ML-KEM, ML-DSA, SLH-DSA, hybrid PQC | PLANNED | not started; SHA-256 is a prerequisite primitive for several of these (e.g. HMAC), not yet built upon |
 
-## Layers 7-9, 11-21 (Distributed Systems, Storage, Security,
-Formal Verification, Cloud, Developer Ecosystem,
+## Layer 13 (Developer Ecosystem)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **OGGit content-addressed object store** (blob/tree/commit, SHA-256-based, real disk I/O) | TESTED | `13-developer-ecosystem/oggit/`; `tests/oggit_object_store_test.sh` — 24 hosted assertions (round trips, content-addressing determinism, corrupted-object detection via re-hash on read, canonical tree ordering, commit parent-count variations, full commit→tree→blob reconstruction). Genuine integration with Layer 10's SHA-256, not a reimplementation. See [`docs/ADR/0007-oggit-object-store.md`](docs/ADR/0007-oggit-object-store.md) |
+| OGGit refs/branches/merge/remote sync, OGForge, OGRegistry, OGJudge | PLANNED | no ref/branch concept, working-directory model, or remote transport exists yet; OGForge/OGRegistry/OGJudge not started |
+
+## Layers 7-9, 11-12, 14-21 (Distributed Systems, Storage, Security,
+Formal Verification, Cloud,
 AI/ML, Quantum, Robotics, Graphics, Scientific Computing, Finance,
 Space Systems, VLEO research)
 
