@@ -125,7 +125,8 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | Requirement | Status | Evidence |
 |---|---|---|
 | **RPC + deterministic network simulation with fault injection** (drop/duplicate/reorder/delay, hard partitions with heal) | TESTED | `07-distributed-systems/rpc/`; `tests/rpc_test.sh` — 35 hosted assertions (serialization + RPC framing round trips and malformed-input rejection, full call success, unknown-method error handling, drop-induced timeout, partition block+heal, duplication/reordering robustness, and a genuine determinism proof: identical seed → identical 8-call outcome sequence, different seed → different sequence). See [`docs/ADR/0008-distributed-rpc.md`](docs/ADR/0008-distributed-rpc.md) |
-| Real network transport, membership, leader election, Raft, replicated state machines | PLANNED | RPC runs entirely in-process/in-memory; no socket transport, no membership protocol, no consensus algorithm exists yet |
+| **Raft leader election** (randomized timeouts, RequestVote/Heartbeat RPCs, term-based safety) | TESTED | `07-distributed-systems/raft/`; `tests/raft_test.sh` — 10 hosted assertions incl. a safety check at every tick of a 300-tick run (never two simultaneous leaders per term), leader-failure→new-election with strictly higher term, determinism, and liveness under 20% message loss. A real addressing bug (a node's own server-pump logic drained and discarded its own pending call's responses) was caught and fixed during development — see [`docs/ADR/0009-raft-leader-election.md`](docs/ADR/0009-raft-leader-election.md) |
+| Real network transport, membership, Raft log replication/committed entries, replicated state machines | PLANNED | RPC/Raft run entirely in-process/in-memory; no socket transport, no membership protocol, no log replication exists yet |
 
 ## Layers 8-9, 11-12, 14-21 (Storage, Security,
 Formal Verification, Cloud,

@@ -181,7 +181,10 @@ std::vector<uint8_t> RpcServer::handleRequest(const std::vector<uint8_t>& reques
 void pumpServer(SimulatedNetwork& network, NodeId serverNode, RpcServer& server) {
     for (auto& [from, bytes] : network.receiveAll(serverNode)) {
         std::vector<uint8_t> response = server.handleRequest(bytes);
-        network.send(serverNode, from, response);
+        // Addressed to the sender's response channel, not its plain
+        // node id — see responsePort()'s comment in rpc.hpp for why
+        // conflating the two caused a real bug during development.
+        network.send(serverNode, responsePort(from), response);
     }
 }
 
@@ -207,7 +210,7 @@ CallResult RpcClient::call(
         network.tick();
         pumpServer(network, serverNode, server);
 
-        for (auto& [from, bytes] : network.receiveAll(self)) {
+        for (auto& [from, bytes] : network.receiveAll(responsePort(self))) {
             (void)from;
             RpcResponse response;
             if (!parseResponse(bytes, response)) {

@@ -22,6 +22,21 @@ namespace dist {
 using NodeId = uint32_t;
 using RequestId = uint64_t;
 
+// A node's inbound *requests* (things sent to its RpcServer) and its
+// inbound *responses* (answers to calls it made as a client) are
+// logically separate channels, even though both travel over the same
+// SimulatedNetwork — real RPC systems draw the identical distinction
+// (a reply address distinct from a service's listening address).
+// Without this separation, a node acting as both client and server
+// (as every Raft node does) would have its own pumpServer() drain and
+// misinterpret its own pending call's response as a malformed
+// request, discarding it before the response ever reached the code
+// waiting for it — a real bug caught during Raft development (see
+// docs/ADR/0009-raft-leader-election.md), not a hypothetical one.
+// `responsePort` maps a node's plain id to its distinct
+// response-channel address.
+inline NodeId responsePort(NodeId node) { return node + 0x40000000u; }
+
 struct RpcRequest {
     RequestId id;
     std::string method;
