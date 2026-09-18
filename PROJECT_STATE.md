@@ -128,7 +128,14 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | **Raft leader election** (randomized timeouts, RequestVote/Heartbeat RPCs, term-based safety) | TESTED | `07-distributed-systems/raft/`; `tests/raft_test.sh` — 10 hosted assertions incl. a safety check at every tick of a 300-tick run (never two simultaneous leaders per term), leader-failure→new-election with strictly higher term, determinism, and liveness under 20% message loss. A real addressing bug (a node's own server-pump logic drained and discarded its own pending call's responses) was caught and fixed during development — see [`docs/ADR/0009-raft-leader-election.md`](docs/ADR/0009-raft-leader-election.md) |
 | Real network transport, membership, Raft log replication/committed entries, replicated state machines | PLANNED | RPC/Raft run entirely in-process/in-memory; no socket transport, no membership protocol, no log replication exists yet |
 
-## Layers 8-9, 11-12, 14-21 (Storage, Security,
+## Layer 8 (Storage)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **Write-ahead log** (CRC-32-checked, crash-tested recovery) + **KV store** built on it | TESTED | `08-storage/wal/`, `kv/`; `tests/storage_test.sh` — 23 hosted assertions incl. genuine crash simulation (a torn trailing record and a bit-flipped checksum, both produced by directly modifying on-disk bytes) and full-restart/repeated-restart recovery correctness. Record encoding reuses Layer 7's serialization codec directly. See [`docs/ADR/0010-storage-wal.md`](docs/ADR/0010-storage-wal.md) |
+| Block-device abstraction, compaction, transactions/MVCC, indexes/query engine, replication | PLANNED | operates directly on a host file via fstream, not a block-level interface; no transaction/concurrency-control/replication layer exists yet |
+
+## Layers 9, 11-12, 14-21 (Security,
 Formal Verification, Cloud,
 AI/ML, Quantum, Robotics, Graphics, Scientific Computing, Finance,
 Space Systems, VLEO research)

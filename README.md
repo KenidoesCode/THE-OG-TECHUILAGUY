@@ -346,7 +346,8 @@ heap, filesystem, or networking are implemented yet — see
 - [x] Layer 10 Cryptography — a real, from-scratch SHA-256 (FIPS 180-4) implementation verified against the standard's own known-answer test vectors (7 hosted tests); no AEAD/PKI/PQC yet (see [ADR 0006](docs/ADR/0006-cryptography-hashing.md))
 - [x] Layer 13 Developer Ecosystem — OGGit's content-addressed object store (blob/tree/commit, real SHA-256 integration with Layer 10, 24 hosted tests incl. corrupted-object detection and a full commit→tree→blob reconstruction); no refs/branches/merge/remote sync, OGForge, OGRegistry, or OGJudge yet (see [ADR 0007](docs/ADR/0007-oggit-object-store.md))
 - [x] Layer 7 Distributed Systems — RPC + a deterministic, seeded, in-process network simulator with real fault injection (drop/duplicate/reorder/delay, hard partitions with heal), plus Raft leader election on top (safety checked at every tick, failover, determinism, liveness under loss); 45 hosted tests total; no real transport, membership, or log replication yet (see [ADR 0008](docs/ADR/0008-distributed-rpc.md), [ADR 0009](docs/ADR/0009-raft-leader-election.md))
-- [ ] Storage, Cloud, AI, Quantum, Space Systems
+- [x] Layer 8 Storage — a real CRC-32-checked write-ahead log and a durable KV store built on it (crash-tested via genuine on-disk corruption/truncation simulation, 23 hosted tests, reusing Layer 7's serialization codec); no block-device abstraction, transactions, or replication yet (see [ADR 0010](docs/ADR/0010-storage-wal.md))
+- [ ] Cloud, AI, Quantum, Space Systems
 
 See [`PROJECT_STATE.md`](./PROJECT_STATE.md) for the full, honestly-labeled
 per-layer status of every PRD requirement, not just this summary.
