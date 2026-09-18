@@ -120,7 +120,14 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | **OGGit content-addressed object store** (blob/tree/commit, SHA-256-based, real disk I/O) | TESTED | `13-developer-ecosystem/oggit/`; `tests/oggit_object_store_test.sh` — 24 hosted assertions (round trips, content-addressing determinism, corrupted-object detection via re-hash on read, canonical tree ordering, commit parent-count variations, full commit→tree→blob reconstruction). Genuine integration with Layer 10's SHA-256, not a reimplementation. See [`docs/ADR/0007-oggit-object-store.md`](docs/ADR/0007-oggit-object-store.md) |
 | OGGit refs/branches/merge/remote sync, OGForge, OGRegistry, OGJudge | PLANNED | no ref/branch concept, working-directory model, or remote transport exists yet; OGForge/OGRegistry/OGJudge not started |
 
-## Layers 7-9, 11-12, 14-21 (Distributed Systems, Storage, Security,
+## Layer 7 (Distributed Systems)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **RPC + deterministic network simulation with fault injection** (drop/duplicate/reorder/delay, hard partitions with heal) | TESTED | `07-distributed-systems/rpc/`; `tests/rpc_test.sh` — 35 hosted assertions (serialization + RPC framing round trips and malformed-input rejection, full call success, unknown-method error handling, drop-induced timeout, partition block+heal, duplication/reordering robustness, and a genuine determinism proof: identical seed → identical 8-call outcome sequence, different seed → different sequence). See [`docs/ADR/0008-distributed-rpc.md`](docs/ADR/0008-distributed-rpc.md) |
+| Real network transport, membership, leader election, Raft, replicated state machines | PLANNED | RPC runs entirely in-process/in-memory; no socket transport, no membership protocol, no consensus algorithm exists yet |
+
+## Layers 8-9, 11-12, 14-21 (Storage, Security,
 Formal Verification, Cloud,
 AI/ML, Quantum, Robotics, Graphics, Scientific Computing, Finance,
 Space Systems, VLEO research)
