@@ -111,7 +111,8 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | Requirement | Status | Evidence |
 |---|---|---|
 | **SHA-256** (FIPS 180-4), from-scratch, streaming API | TESTED | `10-cryptography/hashing/`; `tests/sha256_test.sh` — 7 hosted assertions against the standard's own published known-answer test vectors (empty string, "abc", a two-block 56-byte message, one million repeated 'a's) plus incremental-vs-one-shot equivalence and reset() correctness. See [`docs/ADR/0006-cryptography-hashing.md`](docs/ADR/0006-cryptography-hashing.md) |
-| AEAD, PKI, HMAC/MAC, key exchange, ML-KEM, ML-DSA, SLH-DSA, hybrid PQC | PLANNED | not started; SHA-256 is a prerequisite primitive for several of these (e.g. HMAC), not yet built upon |
+| **HMAC-SHA256** (RFC 2104), built on the SHA-256 above, plus constant-time MAC comparison | TESTED | `10-cryptography/mac/`; `tests/hmac_test.sh` — 6 hosted assertions against RFC 4231's own published test vectors (incl. the key-longer-than-block-size branch) plus different-key/different-MAC and constant-time-comparison correctness. See [`docs/ADR/0011-hmac.md`](docs/ADR/0011-hmac.md) |
+| AEAD, PKI, key exchange, a KDF, ML-KEM, ML-DSA, SLH-DSA, hybrid PQC | PLANNED | not started |
 
 ## Layer 13 (Developer Ecosystem)
 
