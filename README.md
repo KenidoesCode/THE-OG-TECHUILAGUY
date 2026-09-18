@@ -342,7 +342,8 @@ heap, filesystem, or networking are implemented yet — see
 - [x] Techuilaguy OS — a real kernel heap (`kmalloc`/`kfree`, first-fit free-list with real block splitting and coalescing on top of the physical page allocator; verified both by 16 hosted unit tests of the allocator logic and by a real boot-time alloc/write/free/reuse self-test)
 - [x] Techuilaguy OS — a real ELF32/i386 loader (`ET_EXEC`/`EM_386` only; overflow-safe header/segment validation, per-segment write permissions genuinely enforced by the CPU, BSS zero-init, full rollback on failure; verified by 22 hosted unit tests and two real ELF binaries booted under QEMU — one proving a real writable data segment, the other proving a write into a read-execute-only code segment faults — see [ADR 0004](docs/ADR/0004-elf-loader.md))
 - [ ] Techuilaguy OS — storage/network drivers, filesystem, `exec()`/process replacement, init/shell
-- [ ] Techuilaguy L1, Storage, Cloud, AI, Quantum, Space Systems
+- [x] Layer 6 Networking — a real, standards-based protocol codec layer (Ethernet/ARP/IPv4/ICMP/UDP parsing, serialization, and RFC 1071 checksums; 40 hosted unit tests covering round-trips and every realistic rejection case); no NIC driver, TCP, or sockets API yet (see [ADR 0005](docs/ADR/0005-networking-protocol-layer.md))
+- [ ] Distributed Systems, Storage, Cloud, AI, Quantum, Space Systems
 
 See [`PROJECT_STATE.md`](./PROJECT_STATE.md) for the full, honestly-labeled
 per-layer status of every PRD requirement, not just this summary.

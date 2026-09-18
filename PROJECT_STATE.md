@@ -98,7 +98,15 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 
 ---
 
-## Layers 6-21 (Networking, Distributed Systems, Storage, Security,
+## Layer 6 (Networking)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **Protocol codec layer**: Ethernet, ARP, IPv4, ICMP, UDP — real parsing/serialization/checksums against the actual RFCs (826/791/792/768) | TESTED | `06-networking/protocols/`; `tests/protocols_test.sh` — 40 hosted unit assertions (round-trip + every realistic rejection case per protocol: truncated buffers, wrong ARP hardware type/address lengths/opcode, wrong IPv4 version/IHL/totalLength, corrupted checksums, UDP pseudo-header participation, RFC 768's zero-checksum rule). Pure arithmetic over a byte buffer, no hardware/OS dependency; see [`docs/ADR/0005-networking-protocol-layer.md`](docs/ADR/0005-networking-protocol-layer.md) |
+| NIC driver, TCP, sockets API, routing, ARP cache | PLANNED | no network interface card driver exists anywhere in the repository; TCP's stateful protocol is deliberately deferred rather than attempted partially |
+| TLS/QUIC/HTTP (FR-NET-2), gamified network simulator (FR-NET-3) | PLANNED | both depend on TCP, which doesn't exist yet |
+
+## Layers 7-21 (Distributed Systems, Storage, Security,
 Cryptography/PQC, Formal Verification, Cloud, Developer Ecosystem,
 AI/ML, Quantum, Robotics, Graphics, Scientific Computing, Finance,
 Space Systems, VLEO research)
