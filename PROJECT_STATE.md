@@ -17,7 +17,7 @@ because a directory, README, or interface exists.
 **Reproducing this:** `bash tools/verify_all.sh` builds and runs every
 hosted suite referenced below and prints the real, aggregated
 pass/fail counts — reproduced most recently from a clean clone of the
-current commit (24 suites, 608 assertions, 0 failures). See
+current commit (26 suites, 665 assertions, 0 failures). See
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for supported
 environments, how the runner classifies failures (code/test failure
 vs. build/toolchain failure vs. environment error), and the QEMU-
@@ -134,7 +134,8 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | **OGGit checkout** (real Tree → filesystem materialization, the mirror of the index) | TESTED | `13-developer-ecosystem/oggit/checkout.*`; `tests/oggit_checkout_test.sh` — 23 hosted assertions incl. a full stage→tree→checkout→re-read round trip preserving binary content byte-for-byte, nested-hierarchy materialization, overwrite-vs-leave-untracked-alone behavior, and clean failure (not a crash) on an unknown tree id, a non-Tree object, and a tree referencing a never-written blob. See [`docs/ADR/0018-oggit-checkout.md`](docs/ADR/0018-oggit-checkout.md) |
 | **OGGit diff** (file-level comparison of two Tree objects) | TESTED | `13-developer-ecosystem/oggit/diff.*`; `tests/oggit_diff_test.sh` — 20 hosted assertions incl. correct Added/Removed/Modified detection with real blob ids, multi-depth nested changes, a whole added directory expanding into one entry per contained file, a documented type-change (file↔directory) resolution, sorted deterministic output, and clean (non-crashing) handling of unreadable tree ids. See [`docs/ADR/0019-oggit-diff.md`](docs/ADR/0019-oggit-diff.md) |
 | **OGGit merge** (full-ancestry-DAG merge-base discovery + three-way tree merge) | TESTED | `13-developer-ecosystem/oggit/merge.*`; `tests/oggit_merge_test.sh` — 36 hosted assertions incl. fast-forward, already-up-to-date, a genuine common-ancestor discovery via real multi-parent BFS (not first-parent-only), clean merges across nested directories, ModifyModify/AddAdd/ModifyDelete/FileDirectory conflict classification with correct populated/zero ids, a criss-cross topology with two genuine lowest common ancestors resolved deterministically, and clean (non-crashing) handling of a wrong-type object, a never-written object, malformed commit content, and a corrupt ancestor mid-walk. Deliberately does not write a Commit or touch RefStore — see [`docs/ADR/0020-oggit-merge.md`](docs/ADR/0020-oggit-merge.md) for the full design and explicit non-goals (no rename detection, no recursive/virtual merge-base strategy, no unrelated-histories support) |
-| OGGit remote sync, OGForge, OGRegistry, OGJudge | PLANNED | no remote transport exists; OGForge/OGRegistry/OGJudge not started |
+| **OGForge server foundation** (multi-repository host built on real OGGit, password-based auth, push, branch moves, public browsing, real persistence) | TESTED | `13-developer-ecosystem/forge/forge_server.*`; `tests/forge_server_test.sh` — 24 hosted assertions incl. auth-gated repository creation/push/branch-move, RepositoryAlreadyExists/RepositoryNotFound/InvalidRequest/ObjectNotFound classification, a branch move rejected when its target commit was never pushed, a corrupted on-disk object reported (not silently trusted) via OGGit's existing re-hash-on-read check, and a genuine process-restart test recovering users/repositories/objects/branches. See [`docs/ADR/0023-ogforge-server-foundation.md`](docs/ADR/0023-ogforge-server-foundation.md) for explicit non-goals (no network transport yet, unsalted non-constant-time password hashing — not production auth, no issues/PRs/CI/registry) |
+| OGGit remote sync, OGForge network transport/issues/PRs/CI/registry, OGRegistry, OGJudge | PLANNED | no remote transport exists (OGForge's server logic is in-process only so far); OGRegistry/OGJudge not started |
 
 ## Layer 7 (Distributed Systems)
 
@@ -204,9 +205,25 @@ no visual editor, and no missions/grading/XP yet.
 | **Simulation engine: Node/Link topology graph, real Ethernet frames, L2 switch MAC learning + flooding** | TESTED | `24-network-simulator/netlab/`; `tests/netlab_test.sh` — 18 hosted assertions incl. a real Ethernet frame round-tripping through `06-networking`'s actual codec (genuine cross-layer reuse, not a reimplementation), unicast delivery through a switch that does NOT reach an uninvolved third host, an unknown-destination frame correctly flooding, a learning switch correctly forwarding a reply to only the learned port after one prior frame (not flooding again), broadcast reaching every host, an unreachable-MAC frame delivered to nobody without error, and a genuinely cyclic topology terminating without hanging or crashing (explicitly not "correctly" simulating the cycle — no spanning-tree protocol exists). See [`docs/ADR/0022-techuilaguy-netlab-foundation.md`](docs/ADR/0022-techuilaguy-netlab-foundation.md) |
 | ARP/IPv4/ICMP/DHCP/DNS/TCP behavior over the simulated frames, routers/VLANs/NAT/firewalls, latency/loss/bandwidth simulation, visual topology editor, packet capture UI, missions/grading/XP/skill tree, multiplayer, save/load | PLANNED | none of these exist yet; this is the frame-delivery engine only |
 
-## Layers 9, 12, 14, 16-17, 19, 21 (Security,
+## Layer 14 (AI/ML)
+
+**Status: FOUNDATION.** A real numeric `Tensor` (shape/storage/
+elementwise ops/matmul, no gradient tracking) plus a real, separate
+reverse-mode **scalar** autodiff engine, used together to actually
+train a linear regression model to convergence. Explicitly not
+Tensor-level autodiff, not a neural network, and not a general ML
+framework.
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **Tensor** (shape, flat storage, elementwise add/subtract/multiply, 2D matmul, shape-mismatch rejection) | TESTED | `14-ai/tensor/`; hand-computed expected values incl. a non-square matmul case, and shape-mismatch rejection returning `false` rather than crashing |
+| **Scalar reverse-mode autodiff** (`autodiff::Value`: +, unary/binary −, *, real topological-sort-based `backward()`) | TESTED | `14-ai/autodiff/`; gradients verified against hand-derived expected values AND independently against real numerical (finite-difference) gradients; gradient accumulation for a value reused twice in one expression (`x*x` → `2x`) directly tested, not just single-use chains |
+| **Linear regression training demo** (`y = wx + b` fit via plain gradient descent on MSE, built on the autodiff engine above) | TESTED | `14-ai/training/linear_regression.*`; `tests/ai_test.sh` (33 hosted assertions total across Tensor/autodiff/training) — trains on a fixed synthetic `y=2x+3` dataset for a fixed epoch count and converges to `weight`/`bias` within a documented 0.05 tolerance every run, loss provably decreases, and inference on an unseen input generalizes correctly. See [`docs/ADR/0024-ai-tensor-autodiff-foundation.md`](docs/ADR/0024-ai-tensor-autodiff-foundation.md) for extensive explicit non-goals (no Tensor-level autodiff, no broadcasting, no neural network layers/optimizers beyond plain gradient descent, no GPU/batching) |
+| Tensor-level autodiff, neural network layers/activations, optimizers beyond plain gradient descent, GPU/accelerator support, batching, model serialization | PLANNED | none of these exist yet |
+
+## Layers 9, 12, 16-17, 19, 21 (Security,
 Cloud,
-AI/ML, Robotics, Graphics, Finance,
+Robotics, Graphics, Finance,
 VLEO research)
 
 **Status: PLANNED.** No implementation exists for any of these layers.

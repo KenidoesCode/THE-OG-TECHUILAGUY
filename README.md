@@ -8,7 +8,7 @@
 
 [![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-608%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Tests](https://img.shields.io/badge/tests-665%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
 [![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
 <br>
@@ -86,8 +86,8 @@ No subsystem is considered complete merely because a directory or API exists.
 
 | Metric                                  |                Current state |
 | ---------------------------------------- | ---------------------------: |
-| Verified assertions                     |                      **608** |
-| Test suites                             |                       **24** |
+| Verified assertions                     |                      **665** |
+| Test suites                             |                       **26** |
 | PRD layers with verified implementation |                    **11 + blockchain** |
 | Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
@@ -393,6 +393,48 @@ OGCI
 
 ---
 
+# 🏢 OGForge
+
+A real server-logic foundation for a multi-repository developer
+platform, built directly on OGGit — not a static frontend mock.
+
+Current implementation:
+
+* multiple named repositories, each a real OGGit repository on disk
+* password-based authentication (explicitly not production-grade — see the ADR)
+* authenticated repository creation, object push, and branch moves
+* public repository browsing (list branches, read objects)
+* real on-disk persistence surviving a process restart
+
+Not yet implemented: any network transport (every operation today is
+a direct in-process call), a real KDF-based credential store, private
+repositories/permissions, issues, pull requests, code review, CI, and
+a package registry.
+
+→ [OGForge server foundation ADR](docs/ADR/0023-ogforge-server-foundation.md)
+
+---
+
+# 🧠 AI — Tensor + Autodiff Foundation
+
+A real numeric `Tensor` plus a real, separate reverse-mode **scalar**
+autodiff engine — used together to actually train a linear regression
+model to convergence, not merely define the data structures.
+
+Current implementation:
+
+* `Tensor`: shape, flat storage, elementwise add/subtract/multiply, 2D matrix multiplication, shape-mismatch rejection (no broadcasting)
+* `autodiff::Value`: a real reverse-mode scalar autodiff engine (+, −, ×, topological-sort-based `backward()`), cross-checked against independently-computed numerical (finite-difference) gradients
+* a linear regression demo that trains on a fixed `y = 2x + 3` dataset and converges to `weight ≈ 2`, `bias ≈ 3` within a documented tolerance, then performs inference on an unseen input
+
+**Important:** this is explicitly not Tensor-level autodiff, not a
+neural network, and not a general-purpose ML framework — see the ADR
+for exactly what is and isn't built yet.
+
+→ [AI Tensor + autodiff foundation ADR](docs/ADR/0024-ai-tensor-autodiff-foundation.md)
+
+---
+
 # 🧪 Verification
 
 Verification is treated as a first-class layer rather than an afterthought.
@@ -596,8 +638,8 @@ The dependency graph advances as real implementations become possible.
 The current universal verification runner covers implemented subsystems across the active layers.
 
 ```text
-608 assertions
-24 test suites
+632 assertions
+25 test suites
 0 failures
 ```
 
@@ -623,6 +665,7 @@ OGGit index / staging
 OGGit checkout
 OGGit diff
 OGGit merge
+OGForge server foundation
 Quantum state-vector simulator
 Vec3 + RK4 numerics
 Two-body orbital propagation
@@ -660,7 +703,10 @@ THE-OG-TECHUILAGUY/
 ├── 11-verification/
 │
 ├── 13-developer-ecosystem/
-│   └── oggit/
+│   ├── oggit/
+│   └── forge/
+│
+├── 14-ai/               Tensor + scalar autodiff + linear regression training
 │
 ├── 15-quantum/
 │
@@ -718,7 +764,9 @@ docs/ADR/
 ├── 0019  OGGit diff (tree comparison)
 ├── 0020  OGGit merge (ancestry DAG + three-way merge)
 ├── 0021  Techuilaguy Blockchain L1
-└── 0022  Techuilaguy NetLab foundation
+├── 0022  Techuilaguy NetLab foundation
+├── 0023  OGForge server foundation
+└── 0024  AI Tensor + autodiff foundation
 ```
 
 The ADRs are the detailed technical record.

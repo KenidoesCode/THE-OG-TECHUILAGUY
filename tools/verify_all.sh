@@ -260,6 +260,7 @@ run_suite "OGGit index/staging" "13-developer-ecosystem/tests/oggit_index_test.s
 run_suite "OGGit checkout" "13-developer-ecosystem/tests/oggit_checkout_test.sh"
 run_suite "OGGit diff" "13-developer-ecosystem/tests/oggit_diff_test.sh"
 run_suite "OGGit merge" "13-developer-ecosystem/tests/oggit_merge_test.sh"
+run_suite "OGForge server foundation" "13-developer-ecosystem/tests/forge_server_test.sh"
 echo
 
 echo "Layer 15 — Quantum"
@@ -282,6 +283,10 @@ echo "Layer 24 — Techuilaguy NetLab (network simulator foundation; part of Lay
 run_suite "NetLab topology + L2 switch simulation" "24-network-simulator/tests/netlab_test.sh"
 echo
 
+echo "Layer 14 — AI/ML (Tensor + scalar autodiff foundation)"
+run_suite "Tensor + autodiff + linear regression training" "14-ai/tests/ai_test.sh"
+echo
+
 echo "========================================"
 echo "SUMMARY"
 echo "========================================"
@@ -300,7 +305,7 @@ echo "hardware/emulator-dependent and run separately):"
 echo "  Layers 0-2 (physical foundations / math-CS / digital logic) — not started as standalone code"
 echo "  Layer 9 (Security) — not started as its own subsystem"
 echo "  Layer 12 (Cloud/edge) — not started"
-echo "  Layers 14, 16-17, 19, 21 (AI/ML, Vision, Robotics, Graphics, Finance, VLEO) — not started"
+echo "  Layers 16-17, 19, 21 (Robotics, Graphics, Finance, VLEO) — not started"
 echo "  22-os/tests/boot_test.sh, keyboard_test.sh — QEMU-dependent, run separately"
 echo
 
