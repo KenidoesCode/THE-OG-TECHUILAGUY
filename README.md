@@ -8,7 +8,7 @@
 
 [![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-738%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Tests](https://img.shields.io/badge/tests-783%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
 [![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
 <br>
@@ -86,8 +86,8 @@ No subsystem is considered complete merely because a directory or API exists.
 
 | Metric                                  |                Current state |
 | ---------------------------------------- | ---------------------------: |
-| Verified assertions                     |                      **738** |
-| Test suites                             |                       **30** |
+| Verified assertions                     |                      **783** |
+| Test suites                             |                       **32** |
 | PRD layers with verified implementation |                    **11 + blockchain** |
 | Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
@@ -661,15 +661,19 @@ Current implementation:
 * an inspectable, byte-for-byte-deterministic packet timeline (every ARP/IP event, with the real frame bytes attached)
 * the first gamified mission, "Connect Two Networks" — a real objective/validation/failure/completion evaluator, not a static pass/fail stub
 * a simulation core with no OS/UI dependency, designed (not yet built) to eventually compile to WebAssembly for a browser front end
+* a packet inspector that decodes a real captured frame's actual header fields (Ethernet/ARP/IPv4/ICMP) into human-readable summaries, using only `06-networking`'s existing parse functions
+* a timeline session supporting step forward, step backward (rewind), jump-to, and reset over an already-computed simulation timeline — the UI-independent core a future timeline UI would drive (Phase 1 of the NetLab product build)
 
 Not yet implemented: multi-hop routing, DHCP/DNS/TCP/UDP, a
 persistent ARP cache, latency/loss/bandwidth simulation, a visual
-topology editor, packet capture UI, an actual browser/WebAssembly
-build, additional missions, and grading/XP/skill-tree/classroom mode.
+topology editor, an actual browser/WebAssembly build, additional
+missions, and grading/XP/skill-tree/classroom mode.
 
 → [Techuilaguy NetLab foundation ADR](docs/ADR/0022-techuilaguy-netlab-foundation.md)
 
 → [NetLab IPv4/ARP/routing + first mission ADR](docs/ADR/0028-netlab-ip-arp-routing-mission.md)
+
+→ [NetLab packet inspector + timeline session ADR](docs/ADR/0029-netlab-packet-inspector-and-timeline-session.md)
 
 ---
 
@@ -854,7 +858,10 @@ docs/ADR/
 ├── 0025  Graphics software rasterizer foundation
 ├── 0026  ECS / game-engine foundation
 ├── 0027  Robotics planar-arm foundation
-└── 0028  NetLab IPv4/ARP/routing + first mission
+├── 0028  NetLab IPv4/ARP/routing + first mission
+└── 0029  NetLab packet inspector + timeline session
+NetLab packet inspector
+NetLab timeline session (step/rewind/replay)
 ```
 
 The ADRs are the detailed technical record.

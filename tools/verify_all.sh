@@ -282,6 +282,8 @@ echo
 echo "Layer 24 — Techuilaguy NetLab (network simulator foundation; part of Layer 6's FR-NET-3 scope — see docs/ADR/0022-techuilaguy-netlab-foundation.md)"
 run_suite "NetLab topology + L2 switch simulation" "24-network-simulator/tests/netlab_test.sh"
 run_suite "NetLab IPv4/ARP/routing + first mission" "24-network-simulator/tests/ip_routing_test.sh"
+run_suite "NetLab packet inspector" "24-network-simulator/tests/packet_inspector_test.sh"
+run_suite "NetLab timeline session (step/rewind/replay)" "24-network-simulator/tests/simulation_session_test.sh"
 echo
 
 echo "Layer 14 — AI/ML (Tensor + scalar autodiff foundation)"
