@@ -8,7 +8,7 @@
 
 [![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-470%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Tests](https://img.shields.io/badge/tests-493%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
 [![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
 <br>
@@ -86,8 +86,8 @@ No subsystem is considered complete merely because a directory or API exists.
 
 | Metric                                  |                Current state |
 | ---------------------------------------- | ---------------------------: |
-| Verified assertions                     |                      **470** |
-| Test suites                             |                       **19** |
+| Verified assertions                     |                      **493** |
+| Test suites                             |                       **20** |
 | PRD layers with verified implementation |                       **11** |
 | Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
@@ -361,6 +361,7 @@ Current work includes:
 * branch references
 * symbolic and detached HEAD
 * index / staging area (real hierarchical tree construction from staged files)
+* checkout (materializing a tree back onto a real filesystem)
 
 Future:
 
@@ -381,6 +382,8 @@ OGCI
 → [OGGit refs ADR](docs/ADR/0014-oggit-refs.md)
 
 → [OGGit index ADR](docs/ADR/0017-oggit-index.md)
+
+→ [OGGit checkout ADR](docs/ADR/0018-oggit-checkout.md)
 
 ---
 
@@ -541,8 +544,8 @@ The dependency graph advances as real implementations become possible.
 The current universal verification runner covers implemented subsystems across the active layers.
 
 ```text
-470 assertions
-19 test suites
+493 assertions
+20 test suites
 0 failures
 ```
 
@@ -565,6 +568,7 @@ Property-based testing
 OGGit object store
 OGGit refs / HEAD / history
 OGGit index / staging
+OGGit checkout
 Quantum state-vector simulator
 Vec3 + RK4 numerics
 Two-body orbital propagation
@@ -649,7 +653,8 @@ docs/ADR/
 ├── 0014  OGGit refs
 ├── 0015  Quantum simulator
 ├── 0016  Scientific computing + orbital mechanics
-└── 0017  OGGit index (staging area)
+├── 0017  OGGit index (staging area)
+└── 0018  OGGit checkout (tree materialization)
 ```
 
 The ADRs are the detailed technical record.

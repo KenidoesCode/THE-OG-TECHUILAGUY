@@ -257,6 +257,7 @@ echo "Layer 13 — Developer Ecosystem"
 run_suite "OGGit object store" "13-developer-ecosystem/tests/oggit_object_store_test.sh"
 run_suite "OGGit refs/HEAD/history" "13-developer-ecosystem/tests/oggit_refs_test.sh"
 run_suite "OGGit index/staging" "13-developer-ecosystem/tests/oggit_index_test.sh"
+run_suite "OGGit checkout" "13-developer-ecosystem/tests/oggit_checkout_test.sh"
 echo
 
 echo "Layer 15 — Quantum"

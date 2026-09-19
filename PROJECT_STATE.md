@@ -17,7 +17,7 @@ because a directory, README, or interface exists.
 **Reproducing this:** `bash tools/verify_all.sh` builds and runs every
 hosted suite referenced below and prints the real, aggregated
 pass/fail counts — reproduced most recently from a clean clone of the
-current commit (19 suites, 470 assertions, 0 failures). See
+current commit (20 suites, 493 assertions, 0 failures). See
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for supported
 environments, how the runner classifies failures (code/test failure
 vs. build/toolchain failure vs. environment error), and the QEMU-
@@ -130,7 +130,8 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | **OGGit content-addressed object store** (blob/tree/commit, SHA-256-based, real disk I/O) | TESTED | `13-developer-ecosystem/oggit/`; `tests/oggit_object_store_test.sh` — 24 hosted assertions (round trips, content-addressing determinism, corrupted-object detection via re-hash on read, canonical tree ordering, commit parent-count variations, full commit→tree→blob reconstruction). Genuine integration with Layer 10's SHA-256, not a reimplementation. See [`docs/ADR/0007-oggit-object-store.md`](docs/ADR/0007-oggit-object-store.md) |
 | **OGGit refs, HEAD, first-parent history** (branches, symbolic/detached HEAD, ancestry walk) | TESTED | `13-developer-ecosystem/oggit/refs.*`; `tests/oggit_refs_test.sh` — 18 hosted assertions incl. a branch moving while HEAD symbolically follows it, clean failure on an empty repo, and first-parent history on a real merge commit correctly excluding the other parent's chain. See [`docs/ADR/0014-oggit-refs.md`](docs/ADR/0014-oggit-refs.md) |
 | **OGGit index/staging area** (path→blob map, disk-persisted, real hierarchical tree construction from staged paths) | TESTED | `13-developer-ecosystem/oggit/index.*`; `tests/oggit_index_test.sh` — 31 hosted assertions incl. stage/retrieve/replace/remove, path normalization, save/reload round trip, an empty index producing a real empty tree, a genuinely nested multi-level directory hierarchy independently re-read two levels deep, staging-order-independence of the resulting tree id, and a documented deterministic resolution for a file/directory path conflict. See [`docs/ADR/0017-oggit-index.md`](docs/ADR/0017-oggit-index.md) |
-| OGGit working-tree checkout/diff/merge/remote sync, OGForge, OGRegistry, OGJudge | PLANNED | nothing materializes a Tree back onto a real filesystem yet, no diff or merge algorithm exists, no remote transport; OGForge/OGRegistry/OGJudge not started |
+| **OGGit checkout** (real Tree → filesystem materialization, the mirror of the index) | TESTED | `13-developer-ecosystem/oggit/checkout.*`; `tests/oggit_checkout_test.sh` — 23 hosted assertions incl. a full stage→tree→checkout→re-read round trip preserving binary content byte-for-byte, nested-hierarchy materialization, overwrite-vs-leave-untracked-alone behavior, and clean failure (not a crash) on an unknown tree id, a non-Tree object, and a tree referencing a never-written blob. See [`docs/ADR/0018-oggit-checkout.md`](docs/ADR/0018-oggit-checkout.md) |
+| OGGit diff/merge/remote sync, OGForge, OGRegistry, OGJudge | PLANNED | nothing compares two trees or two indexes yet, no merge algorithm exists, no remote transport; OGForge/OGRegistry/OGJudge not started |
 
 ## Layer 7 (Distributed Systems)
 
