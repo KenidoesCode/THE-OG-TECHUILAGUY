@@ -258,6 +258,7 @@ run_suite "OGGit object store" "13-developer-ecosystem/tests/oggit_object_store_
 run_suite "OGGit refs/HEAD/history" "13-developer-ecosystem/tests/oggit_refs_test.sh"
 run_suite "OGGit index/staging" "13-developer-ecosystem/tests/oggit_index_test.sh"
 run_suite "OGGit checkout" "13-developer-ecosystem/tests/oggit_checkout_test.sh"
+run_suite "OGGit diff" "13-developer-ecosystem/tests/oggit_diff_test.sh"
 echo
 
 echo "Layer 15 — Quantum"

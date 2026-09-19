@@ -42,8 +42,8 @@ keyboard-translation table), the networking protocol codecs, the
 distributed-systems RPC/fault-injection/Raft/authenticated-envelope
 suites, the write-ahead-log + KV store, SHA-256 and HMAC-SHA256,
 cross-layer property-based tests, OGGit's object store, refs/HEAD
-history, index/staging area, and checkout, the quantum state-vector
-simulator, and the scientific-
+history, index/staging area, checkout, and diff, the quantum
+state-vector simulator, and the scientific-
 computing + orbital-mechanics numerics. See `PROJECT_STATE.md` for the
 authoritative, per-capability breakdown with evidence links.
 
