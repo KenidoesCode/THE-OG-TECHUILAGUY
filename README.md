@@ -4,405 +4,752 @@
 
 ### A Complete Computing Civilization — From First Principles to a Brighter Tomorrow
 
-*One repository. One evolving ecosystem.*
+**One repository. One evolving ecosystem.**
 
-![Status](https://img.shields.io/badge/status-early--development-orange?style=for-the-badge)
-![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
-![Made with](https://img.shields.io/badge/made%20with-first%20principles-purple?style=for-the-badge)
-![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen?style=for-the-badge)
+[![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-439%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
-`mathematics` → `hardware` → `compilers` → `os` → `networking` → `security` → `distributed systems` → `databases` → `cloud` → `ai` → `quantum` → `space`
+<br>
+
+`MATHEMATICS`
+→ `HARDWARE`
+→ `LANGUAGES`
+→ `COMPILERS`
+→ `OS`
+→ `NETWORKING`
+→ `SECURITY`
+→ `DISTRIBUTED SYSTEMS`
+→ `STORAGE`
+→ `AI`
+→ `QUANTUM`
+→ `SPACE`
 
 </div>
 
 ---
 
-## 🧭 Mission
+## 🧭 What is THE OG TECHUILAGUY?
 
-Most engineers stop at *"use the compiler," "use the OS," "use the cloud."*
-**THE OG TECHUILAGUY** asks what's underneath, and tries to build it.
+**THE OG TECHUILAGUY** is a single open-source repository exploring what it would take to build a complete computing ecosystem from first principles.
 
-```
-Consumer of abstractions → Builder → Designer → Researcher → Ecosystem
-```
+Instead of treating the modern stack as a collection of black boxes, the project works downward:
 
-## 🏗️ Civilization Stack
+> **Understand the abstraction → rebuild it → test it → connect it → measure it → improve it.**
 
-```
-┌─────────────────────────────────────────────┐
-│ Applications • Ecosystem • Fintech • Twin   │
-│ AI • Robotics • Vision • Graphics • HPC      │
-│ Quantum • GPU • Autonomous Computing         │
-│ Distributed Systems • Blockchain • Cloud     │
-│ Networking • Cryptography • Security         │
-│ Operating Systems • Compilers • Languages    │
-│ CPU • ISA • Hardware • Digital Logic         │
-│ Mathematics • Algorithms • Foundations       │
-└─────────────────────────────────────────────┘
-```
+The long-term vision spans everything from mathematics and digital logic to operating systems, distributed infrastructure, cryptography, AI, quantum computing, robotics, scientific computing, and space systems.
 
-## ⚙️ OGLang — the first deep system
+This is not a collection of unrelated demos.
 
-A systems language, built alongside its own compiler. Memory safety and PQC
-integration are design targets, not yet implemented — see `spec/OG_LANG_SPEC_V0.1.md`
-and, for the honest current state of the memory model specifically,
-[`docs/ADR/0001-oglang-memory-model.md`](docs/ADR/0001-oglang-memory-model.md)
-(raw, C-like pointers today: real and tested as a *mechanism*, with no
-bounds checking, use-after-return detection, or borrow checking — not
-"memory safety" in the sense the PRD ultimately targets).
+It is one evolving dependency graph.
 
-```rust
-fn fact(n: i32) -> i32 {
-    if (n <= 1) {
-        return 1;
-    }
-
-    return n * fact(n - 1);
-}
-
-fn main() -> i32 {
-    return fact(5);
-}
+```text
+                    ┌─────────────────────────┐
+                    │     Applications        │
+                    │  AI • Robotics • Vision │
+                    │ Graphics • Fintech • HPC│
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │ Distributed Computing   │
+                    │ Cloud • Storage • DB    │
+                    │ Blockchain • Search     │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │ Systems & Infrastructure │
+                    │ Network • Security • OS │
+                    │ Compiler • OGLang        │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │ Computing Foundations   │
+                    │ Hardware • ISA • Logic  │
+                    │ Algorithms • Mathematics│
+                    └─────────────────────────┘
 ```
 
+---
+
+# 🚀 Current State
+
+This repository is **actively under development**.
+
+The important distinction is:
+
+> **Implemented means implemented. Tested means tested. Planned means planned.**
+
+No subsystem is considered complete merely because a directory or API exists.
+
+### Current verified snapshot
+
+| Metric                                  |                Current state |
+| ---------------------------------------- | ---------------------------: |
+| Verified assertions                     |                      **439** |
+| Test suites                             |                       **18** |
+| PRD layers with verified implementation |                       **11** |
+| Latest commit                           |                    `f2d826f` |
+| Working tree                            |                    **Clean** |
+| Main branch                             | **Synchronized with GitHub** |
+
+Run everything yourself:
+
+```bash
+bash tools/verify_all.sh
 ```
-Lexer → Parser → AST → Type Checker → IR → Liveness/Interference →
-Register Allocation (with real stack spilling) → x86-64 Codegen
-(branches, loops, calls, register-constrained division) →
-Assembler → Linker → Native ELF → CPU
+
+The runner aggregates the real results from the project's implemented test suites.
+
+For the complete status of every layer and requirement:
+
+→ **[PROJECT_STATE.md](PROJECT_STATE.md)**
+
+---
+
+# 🧠 The Core Philosophy
+
+### 01 — First Principles
+
+Understand what the abstraction actually does before rebuilding it.
+
+### 02 — Real Implementations
+
+Prefer working mechanisms over placeholders and impressive-looking interfaces.
+
+### 03 — Verification
+
+Every meaningful claim should have tests, measurements, or reproducible evidence.
+
+### 04 — Honest Scope
+
+A prototype is a prototype.
+
+A simulator is a simulator.
+
+A research direction is a research direction.
+
+Nothing is called production-ready without the evidence to support it.
+
+### 05 — Integration
+
+Subsystems should become dependencies of one another rather than isolated projects.
+
+### 06 — Open Source
+
+The work, architecture, experiments, failures, and lessons should remain inspectable.
+
+---
+
+# 🔥 What Actually Exists?
+
+## 🦾 OGLang + Compiler
+
+A from-scratch systems-language experiment with its own compiler pipeline.
+
+```text
+Source
+  ↓
+Lexer
+  ↓
+Parser / AST
+  ↓
+Type Checker
+  ↓
+IR
+  ↓
+Liveness Analysis
+  ↓
+Interference Graph
+  ↓
+Register Allocation
+  ↓
+x86-64 Code Generation
+  ↓
+Assembler
+  ↓
+Linker
+  ↓
+Native ELF
 ```
 
-**Status: PROTOTYPE.** Verified end-to-end: `ogc` compiles multi-function
-programs — including the recursive one above — to a linked x86-64 ELF
-executable that a Linux process loader actually runs. Implemented and
-tested: integer arithmetic with correct operand-clobber handling,
-register-constrained division (`idivl`/`cdq`), unary minus, comparisons,
-`if`/`else` and `while` control flow, mutable-variable assignment, and
-function calls
-with any number of integer arguments (the first 4 in registers per a
-restricted System V AMD64 subset, the rest caller-cleanup stack-passed)
-under a calling convention that keeps a caller's live values correct
-across nested and repeated calls. The register allocator does real
-Chaitin-style graph coloring with spilling: a program with more
-simultaneously-live values than the 4 available registers compiles and
-runs correctly, with the excess spilled to an `rbp`-relative stack frame
-instead of failing to compile.
-Pointers are also real: `&x` takes the address of a local or parameter,
-forcing it into a stable stack slot instead of a register (the register
-allocator is told exactly which values are address-taken and excludes
-them from coloring entirely, rather than hoping graph coloring happens
-to spill them); `*p` reads and `*p = v` writes through the resulting
-`ptr` value. Pointers are handled as genuine 64-bit addresses in codegen
-(`leaq`, 64-bit spill slots) even though every other OGLang value is
-32-bit — a stack address routinely lives above the 4 GiB boundary on a
-real 64-bit process, and the first version of this feature computed and
-spilled addresses through 32-bit registers/slots, silently truncating
-them into garbage (an immediate segfault on the first real test, caught
-by that test, not by inspection).
+Implemented and tested include:
 
-Fixed-size arrays build directly on the pointer machinery: `let arr:
-i32[N];` reserves N *contiguous* stack slots (a new register-allocator
-capability — a plain forced spill only guarantees each value gets some
-slot, not that a whole group's slots are adjacent and in index order),
-and `arr[i]`/`arr[i] = v` compute the element's address as element 0's
-address minus `i * 8`, reusing the exact same `AddressOfI32`/`LoadI32`/
-`StoreI32` opcodes pointers already use. The one genuinely new piece —
-that address arithmetic — hit the *same* 64-bit-truncation bug class a
-second time: the natural first implementation subtracted the byte
-offset using the generic 32-bit `SubI32` codegen, silently truncating
-the real 64-bit address `AddressOfI32` had just correctly computed.
-Fixed with a dedicated `PtrSubI32` opcode that does the subtraction in
-a 64-bit register, caught by the first real array test, not by
-inspection.
+* integer expressions
+* comparisons
+* `if` / `else`
+* `while`
+* mutable variables
+* functions
+* recursion
+* multi-argument calls
+* register + stack argument passing
+* register allocation
+* real stack spilling
+* pointers
+* fixed-size arrays
+* runtime bounds checking
+* `ptr` / `constptr`
+* structs
+* enums
+* multi-file modules
+* inline assembly boundary
 
-Array indexing is also bounds-checked at run time: `arr[i]` compiles a
-single *unsigned* comparison (`index >= size`) before computing the
-address, which traps (`exit(101)`) on both a too-large index and a
-negative one (a negative `i32` reinterpreted as unsigned is huge, so
-one check catches both) instead of silently computing and using an
-out-of-bounds address.
+The compiler currently targets a restricted x86-64 userspace environment.
 
-Pointers also come in a second, read-only flavor: `constptr` is a
-compile-time-only, no-runtime-cost distinction from `ptr` — a `ptr`
-value may always widen into a `constptr` (variable, parameter, or
-return type), but not the reverse, and `*p = v` is rejected by the type
-checker wherever `p`'s declared type is `constptr`, before IR lowering
-or codegen ever run (both types lower through the identical
-`AddressOfI32`/`LoadI32`/`StoreI32` path and compile to the same raw
-address). This is deliberately not called "ownership" or "borrowing"
-anywhere: it says nothing about a `ptr` alias to the same storage
-writing through it while a `constptr` view exists elsewhere, and
-nothing about lifetimes. See
-[`docs/ADR/0001-oglang-memory-model.md`](docs/ADR/0001-oglang-memory-model.md)
-for the honest, complete accounting of what OGLang's memory model does
-and does not guarantee — bounds checking and the const/mut pointer
-distinction are real; ownership, borrowing, and use-after-return
-detection are not.
+**Important:** OGLang's eventual memory-safety goals are not yet fully implemented. Ownership, borrowing, use-after-return detection, atomics, volatile, MMIO, and other systems-language requirements remain future work.
 
-OGLang also has struct types: `struct Point { x: i32, y: i32 }` at the
-top level, `let p: Point;` for a zero-initialized local (structs have
-no literal-initializer syntax, same as arrays), and `p.x`/`p.x = v;`
-for field read/write. Field access reuses arrays' exact address
-arithmetic and stack layout — each struct-typed local is one more
-`arrayGroups` entry (one fresh stack slot per field, allocated
-contiguously by the register allocator), and `p.x` lowers to field 0's
-address minus a byte offset via the same `AddressOfI32`/`PtrSubI32`
-opcodes array indexing uses, except the offset is a `fieldIndex * 8`
-constant resolved once by the type checker rather than a runtime
-expression — so there is no `MulI32`, and since an unknown field name
-is a compile error rather than a possible runtime value, no bounds
-check either. Struct types are deliberately restricted for now: fields
-must be `i32`/`ptr`/`constptr` (no nested structs, no struct-typed
-arrays), and a struct cannot be used as a function parameter or return
-type (there is no calling convention yet for passing or returning a
-multi-field aggregate) — both rejected explicitly by the type checker
-rather than left to silently miscompile.
+→ [Memory model ADR](docs/ADR/0001-oglang-memory-model.md)
 
-OGLang also has enums, but deliberately as narrow a feature as the
-name suggests: `enum Color { Red, Green, Blue }` at the top level
-declares named `i32` constants, not a distinct nominal type — there is
-no enum-typed variable, no storage, and no exhaustiveness or pattern
-matching. `Color.Red` reuses the identical dot syntax as struct field
-access (`FieldAccessExpr`, unchanged in the parser) and resolves
-entirely at compile time to its declaration-order ordinal (`0`, `1`,
-`2`, ...); when a struct variable and an enum type share a name, the
-struct variable takes priority, so real field access is never misread
-as an enum lookup. Because there's no storage at all, a variant access
-lowers straight to a `ConstI32` immediate — no `AddressOfI32`, no
-`PtrSubI32`, no memory access whatsoever, the concrete way this is
-lighter-weight than struct field access.
+→ [Modules ADR](docs/ADR/0002-oglang-modules.md)
 
-OGLang also has a first-version module system: one source file is one
-module, named after its filename; `import other;` makes `other`'s
-top-level functions/structs/enums reachable only as `other.symbol`
-(never unqualified — the reason two modules exposing the same name is
-never ambiguous), reusing existing syntax rather than inventing new
-syntax (`other.function(...)` is an ordinary `CallExpr` whose callee
-string contains a dot; `other.Enum.Variant` reuses the same
-`FieldAccessExpr` struct field access already uses). `ogc file1.og
-file2.og ...` parses every file, resolves imports into a dependency
-graph, rejects cycles and unknown modules/symbols outright, and
-compiles the whole program into one linked native binary — real
-multi-file compilation, not string concatenation. It is honestly a
-first version: no separately-compiled objects (the whole program is
-still lowered into one assembly file per build), no transitive
-re-export, no selective imports, no visibility control. See
-[`docs/ADR/0002-oglang-modules.md`](docs/ADR/0002-oglang-modules.md)
-for the full design and every explicitly-scoped limit.
+→ [Inline assembly ADR](docs/ADR/0003-oglang-inline-asm.md)
 
-OGLang also has a first version of an inline-assembly boundary:
-`asm("template")` emits the template text verbatim into the generated
-assembly and yields whatever ends up in `%eax` afterward — the same
-register convention function calls already use for their return value.
-There is no operand binding yet (no way to pass an OGLang value in,
-exactly one implicit output), and any other live value is saved and
-restored around the asm block using the identical mechanism `Call`
-already relies on for a callee it can't inspect (arbitrary raw
-assembly is exactly as unpredictable). `volatile` and atomics are
-explicitly *not* implemented alongside this: the compiler performs no
-instruction reordering or elimination of any kind today, so either
-keyword would be syntax implying a guarantee nothing in the
-implementation backs up — see
-[`docs/ADR/0003-oglang-inline-asm.md`](docs/ADR/0003-oglang-inline-asm.md)
-for the full scope and reasoning.
+---
 
-`03-compiler/oglang/tests/e2e_test.sh` runs twenty-nine programs
-end-to-end and checks their real process exit codes, including cases
-specifically chosen to fail under a naive calling convention, an
-unconstrained division lowering, superficial/fake spilling,
-32-bit-truncated pointers, or missing bounds checks — seven real bugs
-were caught this way across this compiler's development (not by
-inspection): a naive calling convention corrupting operands, a
-division codegen typo, three distinct clobber hazards across parameter
-unpacking and argument marshaling, and
-two separate instances of the same 64-bit-pointer-truncation bug class
-(one in the pointer feature itself, one in array element addressing).
-Frontend and codegen invariants are additionally covered by
-`03-compiler/oglang/tests/unit_test.sh` (142 assertions). The type checker
-also verifies every function returns on
-all paths (an `if` without an `else`, or a function ending in a bare
-`while` loop, is rejected — a loop may run zero times).
-Not yet implemented: generics, traits, ownership/borrowing, `for` loops,
-modules, nested/struct-typed-array fields, struct function
-parameters/returns, and any type other than `i32`/`ptr`/`constptr`.
+# 🖥️ Techuilaguy OS
 
-## 🖥️ Techuilaguy OS — second deep system
+A from-scratch 32-bit x86 freestanding operating-system prototype.
 
-An x86 (32-bit) freestanding kernel prototype in `22-os/`.
+Current work includes:
 
-**Status: PROTOTYPE.** Boots under QEMU (Multiboot-compliant), reaches
-kernel entry, brings up a physical frame allocator, a real IDT with CPU
-exception handlers, the PIC, and a syscall-ABI/VFS/security foundation.
+* Multiboot boot
+* physical page allocation
+* IDT
+* CPU exception handling
+* PIC / IRQ handling
+* PIT timer
+* preemptive round-robin scheduling
+* task lifecycle management
+* GDT
+* TSS
+* ring-3 userspace
+* syscall entry
+* privilege enforcement
+* paging
+* per-process address spaces
+* kernel heap
+* ELF32 loading
+* PS/2 keyboard input
 
-The scheduler runs real preemptive multitasking: hardware IRQ0 handling
-(PIC EOI, raw tick counting) is architecturally separate from software
-scheduling policy (round-robin selection, task lifecycle) — both the
-100 Hz timer and a software `int $0x81` yield vector drive the same
-policy function, which returns the kernel stack pointer to resume,
-letting `isr_common` context-switch by simply loading a different task's
-saved trap frame. Task lifecycle (Ready/Running/Blocked/Dead) is tracked
-per-task by a permanently unique pid, not by table-slot index, which is
-what makes resurrecting a dead task structurally impossible rather than
-merely avoided by convention: a dead task's slot can be reused by a new
-task with a new pid, and any code still holding the old pid (e.g. a stale
-`scheduler_unblock` call) can no longer reach it.
+The system is tested through both hosted tests and real QEMU boot scenarios.
 
-All of this is checked by `22-os/tests/boot_test.sh`, which boots the
-kernel headlessly and asserts on real serial console output from the
-kernel's own scheduler self-test in `kernel.cpp`: a task that runs a fixed
-number of times and exits, a supervisor task that then proves the exited
-task is never scheduled again, and a third task that reuses the dead
-task's slot while a stale-pid unblock call is made against it and is
-proven not to disturb the new occupant.
+→ [ELF loader ADR](docs/ADR/0004-elf-loader.md)
 
-A real PS/2 keyboard driver reads scancodes from IRQ1 and translates them
-to ASCII (US QWERTY, unshifted). `22-os/tests/keyboard_test.sh` boots the
-kernel and injects real scancodes through QEMU's monitor to verify the
-hardware-facing path end-to-end; the translation table itself has no
-hardware I/O and is separately unit-tested with a hosted compiler
-(`22-os/tests/keyboard_translation_test.sh`).
+---
 
-**Real ring-3 userspace**: a from-scratch GDT + TSS (there was no GDT at
-all before this — `isr_common` and the scheduler both hardcoded `0x18`
-as "the kernel data selector", an unverified assumption inherited from
-the bootloader's own default), a syscall entry (`int $0x80`, a
-dedicated DPL-3 IDT gate) reaching a real dispatcher (`SYS_WRITE`,
-`SYS_YIELD`, `SYS_EXIT` implemented), and genuine privilege enforcement:
-a real flat-machine-code ring-3 program (`22-os/userland/hello.S`)
-reaches the kernel only through syscalls and survives an invalid
-syscall number without crashing, while a second one
-(`22-os/userland/evil.S`) executes a privileged instruction (`cli`)
-directly from CPL 3 and is verified to fault (#GP) and be terminated in
-isolation — the kernel and every other task keep running, and the
-faulting program's own code after that point is verified to never
-execute.
+# 🌐 Networking
 
-**Real paging with genuine per-process address spaces**: a shared
-32-bit identity-mapped kernel region is built and `CR0.PG` enabled, and
-every user task additionally gets its **own page directory and its own
-private page table** mapping its code/stack pages at a fixed virtual
-address that's identical across tasks — what differs per task is which
-physical pages that address actually translates to. `CR3` is switched
-on every context switch. No other task's directory has any translation
-for another task's private region at all, which is what makes one
-process structurally unable to reach another's memory, not merely
-denied by a permission bit within one shared directory (the design
-this replaced, and a strictly weaker guarantee — under it, any process
-could in principle reach any other's pages by guessing their physical
-addresses). Two ring-3 programs verify this against real boot behavior:
-`22-os/userland/kernel_peek.S` reads the kernel's own load address (in
-the *shared* region) and `22-os/userland/neighbor_peek.S` reads one
-page past its own granted private region (never mapped in *any* task's
-address space); both are confirmed to fault with #PF and be terminated
-in isolation, with the kernel and every other task — including the
-ongoing scheduler lifecycle test — kept running throughout. No kernel
-heap, filesystem, or networking are implemented yet — see
-`22-os/README.md`.
+A standards-based protocol foundation currently covering:
 
-## 🧩 Domains
+* Ethernet
+* ARP
+* IPv4
+* ICMP
+* UDP
+* RFC 1071 checksums
 
-| # | Domain | # | Domain |
-|---|---|---|---|
-| 01 | Foundations | 15 | Search |
-| 02 | Hardware | 16 | Browser |
-| 03 | Compiler | 17 | Developer Platform |
-| 04 | OS | 18 | Robotics |
-| 05 | Networking | 19 | Computer Vision |
-| 06 | Cryptography | 20 | Graphics |
-| 07 | Cybersecurity | 21 | Gaming |
-| 08 | Distributed Systems | 22 | Fintech |
-| 09 | Blockchain | 23 | Scientific Computing |
-| 10 | Storage & Databases | 24 | Futuristic Computing |
-| 11 | Cloud Infrastructure | 25 | Research |
-| 12 | AI/ML | 26 | Documentation |
-| 13 | GPU/HPC | 27 | Space Systems |
-| 14 | Quantum | | |
+The current implementation is intentionally scoped below a full network stack.
 
-## 🗺️ Roadmap
+Not yet implemented:
 
-- [x] Repository + OGLang v0.1 spec
-- [x] Lexer → Parser → AST → Type Checker → IR → Register Allocation → x86-64 → linked native ELF executable, verified by an end-to-end test
-- [x] Register-constrained division, `if`/`else` control flow, multi-function programs, calls with any number of arguments (register + stack-passed), a correct calling convention across nested/recursive calls
-- [x] `while` loops, mutable-variable assignment, real register-allocator spilling (Chaitin-style graph coloring, `rbp`-relative stack slots), all-paths-return checking
-- [x] Real pointers: `&`/`*` (address-of, load, store) as genuine 64-bit addresses, with address-taken locals forced into stable stack slots
-- [x] Fixed-size arrays: `i32[N]` with contiguous-slot allocation and pointer-arithmetic-based indexing
-- [x] Runtime array bounds checking (out-of-range and negative indices both trap; see [ADR 0001](docs/ADR/0001-oglang-memory-model.md))
-- [x] `const`/`mut` pointer distinction (`constptr`/`ptr`), compile-time only, no runtime cost — a `ptr` widens into a `constptr`, writes through a `constptr` are rejected by the type checker; not ownership or borrowing (see [ADR 0001](docs/ADR/0001-oglang-memory-model.md))
-- [x] Struct types: `struct Name { field: type, ... }`, zero-initialized locals, field read/write (`p.x`, `p.x = v;`) reusing array address arithmetic with compile-time-constant field offsets (no bounds check needed); fields restricted to `i32`/`ptr`/`constptr`, structs not yet supported as function parameters/return types
-- [x] Enum types: `enum Name { Variant, ... }`, `Name.Variant` reusing struct field-access dot syntax, resolved entirely at compile time to a declaration-order ordinal — named `i32` constants, not a distinct nominal type; no storage, no exhaustiveness/pattern matching
-- [x] First-version module system: one file = one module, `import other;`, qualified access only (`other.symbol`, never unqualified — never ambiguous across modules), cycles rejected outright; `ogc a.og b.og ...` compiles and links a real multi-file program into one binary (see [ADR 0002](docs/ADR/0002-oglang-modules.md) for exact scope: no separate objects, no transitive re-export, no selective imports, no visibility control)
-- [x] Inline-assembly boundary (v1): `asm("template")`, verbatim emission, a single fixed-register (`%eax`) result, live values saved/restored around it using the same mechanism `Call` uses; no operand binding yet — not `volatile`, not atomics, not MMIO (see [ADR 0003](docs/ADR/0003-oglang-inline-asm.md))
-- [ ] `for` loops, nested/struct-typed-array fields, struct function parameters/returns, `volatile`, atomics, MMIO, freestanding/kernel-target compilation
-- [ ] A real borrow-checking pass, generics, traits, safe concurrency
-- [x] **Techuilaguy OS** — boots under QEMU: IDT, PIC/IRQ, syscall ABI foundation, VFS foundation, security foundation
-- [x] Techuilaguy OS — real preemptive scheduler: round-robin, task lifecycle (Ready/Running/Blocked/Dead), pid-based anti-resurrection, hardware IRQ separated from scheduling policy (verified by an automated boot test running a real lifecycle scenario)
-- [x] Techuilaguy OS — PS/2 keyboard driver (verified against real injected scancodes via QEMU's monitor, not just a unit-tested translation table)
-- [x] Techuilaguy OS — GDT + TSS + ring-3 userspace + syscall entry (verified against a real ring-3 program and a real privilege-violation fault, both against actual boot behavior)
-- [x] Techuilaguy OS — real paging with genuine per-process address spaces (own page directory/table per task, CR3 switched per context switch; verified against a real ring-3 program reading unmapped kernel memory and a second reading past its own private region, both faulting and killed in isolation)
-- [x] Techuilaguy OS — a real kernel heap (`kmalloc`/`kfree`, first-fit free-list with real block splitting and coalescing on top of the physical page allocator; verified both by 16 hosted unit tests of the allocator logic and by a real boot-time alloc/write/free/reuse self-test)
-- [x] Techuilaguy OS — a real ELF32/i386 loader (`ET_EXEC`/`EM_386` only; overflow-safe header/segment validation, per-segment write permissions genuinely enforced by the CPU, BSS zero-init, full rollback on failure; verified by 22 hosted unit tests and two real ELF binaries booted under QEMU — one proving a real writable data segment, the other proving a write into a read-execute-only code segment faults — see [ADR 0004](docs/ADR/0004-elf-loader.md))
-- [ ] Techuilaguy OS — storage/network drivers, filesystem, `exec()`/process replacement, init/shell
-- [x] Layer 6 Networking — a real, standards-based protocol codec layer (Ethernet/ARP/IPv4/ICMP/UDP parsing, serialization, and RFC 1071 checksums; 40 hosted unit tests covering round-trips and every realistic rejection case); no NIC driver, TCP, or sockets API yet (see [ADR 0005](docs/ADR/0005-networking-protocol-layer.md))
-- [x] Layer 10 Cryptography — a real, from-scratch SHA-256 (FIPS 180-4) and HMAC-SHA256 (RFC 2104) implementation, each verified against the standard's own known-answer test vectors (13 hosted tests total); no AEAD/PKI/KDF/PQC yet (see [ADR 0006](docs/ADR/0006-cryptography-hashing.md), [ADR 0011](docs/ADR/0011-hmac.md))
-- [x] Layer 13 Developer Ecosystem — OGGit's content-addressed object store (blob/tree/commit, real SHA-256 integration with Layer 10) plus refs/HEAD/first-parent history (branches, symbolic/detached HEAD, merge-aware ancestry walk); 42 hosted tests total; no index/diff/merge/remote sync, OGForge, OGRegistry, or OGJudge yet (see [ADR 0007](docs/ADR/0007-oggit-object-store.md), [ADR 0014](docs/ADR/0014-oggit-refs.md))
-- [x] Layer 7 Distributed Systems — RPC + a deterministic, seeded, in-process network simulator with real fault injection (drop/duplicate/reorder/delay, hard partitions with heal), Raft leader election on top (safety checked at every tick, failover, determinism, liveness under loss), and HMAC-authenticated RPC envelopes integrating Layer 10's crypto; 55 hosted tests total; no real transport, membership, log replication, or key exchange yet (see [ADR 0008](docs/ADR/0008-distributed-rpc.md), [ADR 0009](docs/ADR/0009-raft-leader-election.md), [ADR 0012](docs/ADR/0012-authenticated-rpc.md))
-- [x] Layer 8 Storage — a real CRC-32-checked write-ahead log and a durable KV store built on it (crash-tested via genuine on-disk corruption/truncation simulation, 23 hosted tests, reusing Layer 7's serialization codec); no block-device abstraction, transactions, or replication yet (see [ADR 0010](docs/ADR/0010-storage-wal.md))
-- [x] Layer 11 Formal Verification — a real, seeded property-based testing framework applied to 5 genuine subsystems across networking/distributed-systems/storage/crypto/the OS (RPC serialization round-trip, HMAC determinism, WAL exactness, ELF-loader and network-parser fuzz robustness against thousands of random inputs each); no shrinking, model checking, or coverage-guided fuzzing yet (see [ADR 0013](docs/ADR/0013-property-testing.md))
-- [x] Layer 15 Quantum — a real classical state-vector simulator (X/Z/H/CNOT gates, measurement, exact Bell/GHZ amplitude verification plus correlation checked over 1500 combined measurement trials, a property test integrating Layer 11); no algorithm library, noise model, or error correction yet (see [ADR 0015](docs/ADR/0015-quantum-simulator.md))
-- [x] Layer 18 Scientific Computing + Layer 20 Space Systems — Vec3/RK4 numerics (verified against known-exact ODE solutions) used directly by a real two-body orbital propagator (verified against the real geostationary period, circular-orbit conservation, and elliptical-orbit energy conservation — a real step-count truncation bug was caught and fixed); no perturbations, spacecraft model, or mission simulator yet (see [ADR 0016](docs/ADR/0016-scientific-computing-linalg.md))
-- [ ] Cloud, AI
+* NIC drivers
+* TCP
+* sockets API
+* TLS
+* QUIC
+* HTTP
 
-See [`PROJECT_STATE.md`](./PROJECT_STATE.md) for the full, honestly-labeled
-per-layer status of every PRD requirement, not just this summary.
+→ [Networking ADR](docs/ADR/0005-networking-protocol-layer.md)
 
-## 🔐 Principles
+---
 
-**Security** → threat model → implementation → tests → fuzzing → review
-**Crypto** → classical → lattice → PQC → hybrid → crypto-agility
-**Everything** → measured, verified, documented, reproducible — no claims without benchmarks.
+# 🔐 Cryptography
 
-## 📚 Structure
+Current cryptographic primitives include:
 
-Each numbered top-level directory is one PRD layer, created when real work
-on it actually begins — there is no placeholder directory for a layer that
-hasn't started yet:
+* SHA-256
+* HMAC-SHA256
 
+They are implemented from scratch and tested against standard known-answer vectors.
+
+Future work includes:
+
+* AEAD
+* KDFs
+* PKI
+* protocol integration
+* post-quantum cryptography
+* hybrid cryptographic protocols
+* crypto-agility
+
+→ [Cryptography ADR](docs/ADR/0006-cryptography-hashing.md)
+
+→ [HMAC ADR](docs/ADR/0011-hmac.md)
+
+---
+
+# ⚡ Distributed Systems
+
+Current foundations include:
+
+* RPC
+* deterministic network simulation
+* seeded fault injection
+* message drop
+* duplication
+* reordering
+* delay
+* partitions and healing
+* Raft leader election
+* authenticated RPC envelopes
+
+The distributed-systems work currently focuses on deterministic simulation and verification rather than pretending to be a production cluster.
+
+→ [RPC ADR](docs/ADR/0008-distributed-rpc.md)
+
+→ [Raft ADR](docs/ADR/0009-raft-leader-election.md)
+
+→ [Authenticated RPC ADR](docs/ADR/0012-authenticated-rpc.md)
+
+---
+
+# 💾 Storage
+
+Current storage foundations include:
+
+* CRC-32 checked WAL
+* durable key-value storage
+* serialization
+* crash/corruption testing
+
+Future layers include:
+
+* block devices
+* filesystems
+* transactions
+* MVCC
+* replication
+* query processing
+* vector storage
+
+→ [Storage ADR](docs/ADR/0010-storage-wal.md)
+
+---
+
+# 🧬 Developer Infrastructure
+
+### OGGit
+
+A content-addressed Git-like storage foundation.
+
+Current work includes:
+
+* blobs
+* trees
+* commits
+* SHA-256 object addressing
+* refs
+* `HEAD`
+* first-parent history
+* branch references
+* symbolic and detached HEAD
+
+Future:
+
+```text
+OGGit
+  ↓
+OGForge
+  ↓
+OGJudge
+  ↓
+OGRegistry
+  ↓
+OGCI
 ```
+
+→ [OGGit ADR](docs/ADR/0007-oggit-object-store.md)
+
+→ [OGGit refs ADR](docs/ADR/0014-oggit-refs.md)
+
+---
+
+# 🧪 Verification
+
+Verification is treated as a first-class layer rather than an afterthought.
+
+Current work includes a seeded property-based testing framework applied across multiple subsystems.
+
+Examples include:
+
+* network serialization
+* HMAC behavior
+* WAL exactness
+* ELF parsing robustness
+* network parser robustness
+
+Future work includes:
+
+* shrinking
+* model checking
+* coverage-guided fuzzing
+* stronger formal methods
+* proof-oriented verification
+
+→ [Verification ADR](docs/ADR/0013-property-testing.md)
+
+---
+
+# ⚛️ Quantum
+
+A classical state-vector simulator currently supports:
+
+* X
+* Z
+* H
+* CNOT
+* measurement
+* Bell states
+* GHZ states
+* amplitude verification
+* correlation verification
+
+The simulator is intentionally a classical research tool.
+
+Not yet implemented:
+
+* quantum algorithms library
+* noise models
+* error correction
+* hardware integration
+
+→ [Quantum ADR](docs/ADR/0015-quantum-simulator.md)
+
+---
+
+# 🧮 Scientific Computing
+
+Layer 18 currently provides the numerical foundation used by the space-systems work:
+
+* `Vec3`
+* vector arithmetic
+* dot products
+* cross products
+* norms
+* normalization
+* classical RK4 integration
+
+The numerical methods are tested against analytical solutions.
+
+---
+
+# 🛰️ Space Systems
+
+Layer 20 currently begins with a real dependency on Layer 18.
+
+```text
+Scientific Computing
+        │
+        ├── Vec3
+        └── RK4
+             │
+             ▼
+      Two-Body Dynamics
+             │
+             ▼
+      Orbital Propagation
+```
+
+Current implementation:
+
+* Newtonian two-body gravity
+* Cartesian position/velocity state
+* Keplerian circular-orbit period
+* specific orbital energy
+* numerical orbital propagation
+
+The orbital tests caught and fixed a real numerical integration bug involving truncated final time steps.
+
+Not yet implemented:
+
+* J2 perturbations
+* atmospheric drag
+* third-body effects
+* thrust
+* spacecraft model
+* ADCS
+* flight software
+* communications
+* telemetry
+* telecommand
+* digital twin
+* mission simulator
+
+→ [Space Systems README](20-space-systems/README.md)
+
+→ [Scientific Computing + Orbital Mechanics ADR](docs/ADR/0016-scientific-computing-linalg.md)
+
+---
+
+# 🗺️ The Civilization Roadmap
+
+The long-term architecture spans:
+
+```text
+01  Foundations
+02  Hardware
+03  Compiler
+04  Operating System
+05  Networking
+06  Cryptography
+07  Cybersecurity
+08  Distributed Systems
+09  Blockchain
+10  Storage & Databases
+11  Verification
+12  Cloud Infrastructure
+13  Developer Ecosystem
+14  AI / ML
+15  Quantum
+16  Robotics
+17  Graphics / Simulation
+18  Scientific Computing
+19  Finance / Data
+20  Space Systems
+21  Quantum-Secure VLEO Research
+22  Applications / Ecosystem
+```
+
+The repository does **not** claim that all of these layers are complete.
+
+The dependency graph advances as real implementations become possible.
+
+---
+
+# 📊 Verified Progress
+
+The current universal verification runner covers implemented subsystems across the active layers.
+
+```text
+439 assertions
+18 test suites
+0 failures
+```
+
+The current verified suites include:
+
+```text
+OGLang unit tests
+OGLang end-to-end tests
+OS kernel heap
+OS ELF loader
+OS keyboard translation
+Network protocol codecs
+RPC + fault injection
+Raft leader election
+Authenticated RPC envelopes
+WAL + KV store
+SHA-256
+HMAC-SHA256
+Property-based testing
+OGGit object store
+OGGit refs / HEAD / history
+Quantum state-vector simulator
+Vec3 + RK4 numerics
+Two-body orbital propagation
+```
+
+Run them:
+
+```bash
+bash tools/verify_all.sh
+```
+
+---
+
+# 🏗️ Repository Structure
+
+```text
 THE-OG-TECHUILAGUY/
-├── 01-foundations/            Math/CS foundations
-├── 03-compiler/                OGLang + its compiler
-├── 06-networking/              Ethernet/ARP/IPv4/ICMP/UDP codecs
-├── 07-distributed-systems/     RPC, deterministic simulation, Raft
-├── 08-storage/                 Write-ahead log, KV store
-├── 10-cryptography/            SHA-256, HMAC-SHA256
-├── 11-verification/            Property-based testing
-├── 13-developer-ecosystem/     OGGit (objects, refs, HEAD, history)
-├── 15-quantum/                 State-vector simulator
-├── 18-scientific-computing/    Vec3, RK4 ODE integrator
-├── 20-space-systems/           Two-body orbital propagation
-├── 22-os/                      Techuilaguy OS (freestanding x86 kernel)
-├── docs/ADR/                   Architecture Decision Records
-├── tools/verify_all.sh         Universal test runner (real, aggregated results)
-├── PROJECT_STATE.md            Full, honestly-labeled per-layer status
-└── README.md · LICENSE
+│
+├── 01-foundations/
+│   └── machine/
+│
+├── 03-compiler/
+│   └── oglang/
+│
+├── 06-networking/
+│
+├── 07-distributed-systems/
+│
+├── 08-storage/
+│
+├── 10-cryptography/
+│
+├── 11-verification/
+│
+├── 13-developer-ecosystem/
+│   └── oggit/
+│
+├── 15-quantum/
+│
+├── 18-scientific-computing/
+│
+├── 20-space-systems/
+│
+├── 22-os/
+│
+├── docs/
+│   └── ADR/
+│
+├── tools/
+│   └── verify_all.sh
+│
+├── PRD.md
+├── PROJECT_STATE.md
+├── LICENSE
+└── README.md
 ```
 
-## 🤝 Contributing
+Each numbered directory represents a layer of the larger computing ecosystem.
 
-Code, docs, tests, benchmarks, research, and security reviews are all
-welcome — this project holds itself to the same rule for outside
-contributions as for its own: every claim needs implementation and test
-evidence, and every ADR must state plainly what's implemented, tested,
-and not yet built.
+---
+
+# 📚 Architecture Decisions
+
+Important design decisions are documented as ADRs.
+
+```text
+docs/ADR/
+├── 0001  OGLang memory model
+├── 0002  OGLang modules
+├── 0003  Inline assembly
+├── 0004  ELF loader
+├── 0005  Networking protocol layer
+├── 0006  Cryptographic hashing
+├── 0007  OGGit object store
+├── 0008  Distributed RPC
+├── 0009  Raft leader election
+├── 0010  Storage WAL
+├── 0011  HMAC-SHA256
+├── 0012  Authenticated RPC
+├── 0013  Property-based testing
+├── 0014  OGGit refs
+├── 0015  Quantum simulator
+└── 0016  Scientific computing + orbital mechanics
+```
+
+The ADRs are the detailed technical record.
+
+The README is the map.
+
+---
+
+# 🧭 Project State
+
+For the most accurate view of what is:
+
+* planned
+* designed
+* prototyped
+* implemented
+* tested
+* benchmarked
+* integrated
+* hardware-tested
+* validated
+
+see:
+
+### → [PROJECT_STATE.md](PROJECT_STATE.md)
+
+That document is intentionally more detailed than this README.
+
+---
+
+# 🤝 Contributing
+
+Contributions are welcome across:
+
+* code
+* tests
+* documentation
+* benchmarks
+* research
+* security reviews
+* architecture
+* mathematical verification
+* hardware experiments
+
+The core rule is simple:
+
+> **If you claim it works, show the evidence.**
+
+Good contributions should include the implementation, tests, documentation, and scope of what remains.
+
+---
+
+# ⭐ The Long-Term Vision
+
+THE OG TECHUILAGUY is ultimately an experiment in building a computing civilization from the bottom up.
+
+Not just:
+
+```text
+"build an app"
+```
+
+but:
+
+```text
+Mathematics
+    ↓
+Algorithms
+    ↓
+Logic
+    ↓
+Hardware
+    ↓
+ISA
+    ↓
+Language
+    ↓
+Compiler
+    ↓
+Operating System
+    ↓
+Networking
+    ↓
+Distributed Systems
+    ↓
+Storage
+    ↓
+Security
+    ↓
+AI / Quantum / Robotics
+    ↓
+Scientific Computing
+    ↓
+Space Systems
+    ↓
+A larger open computing ecosystem
+```
+
+The destination is deliberately ambitious.
+
+The work is deliberately incremental.
+
+Every layer must earn its place.
 
 ---
 
 <div align="center">
 
-**UNDERSTAND → BUILD → CONNECT → VERIFY → MEASURE → IMPROVE → SHARE**
+## UNDERSTAND → BUILD → CONNECT → VERIFY → MEASURE → IMPROVE → SHARE
 
-*From first principles to a brighter tomorrow.*
+### From first principles to a brighter tomorrow.
 
-⭐ Star this repo if you believe computing should be understood, not just used.
+⭐ **Star the repository if you want to follow the build.**
 
 </div>
