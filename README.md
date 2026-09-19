@@ -8,7 +8,7 @@
 
 [![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-549%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Tests](https://img.shields.io/badge/tests-590%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
 [![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
 <br>
@@ -86,9 +86,9 @@ No subsystem is considered complete merely because a directory or API exists.
 
 | Metric                                  |                Current state |
 | ---------------------------------------- | ---------------------------: |
-| Verified assertions                     |                      **549** |
-| Test suites                             |                       **22** |
-| PRD layers with verified implementation |                       **11** |
+| Verified assertions                     |                      **590** |
+| Test suites                             |                       **23** |
+| PRD layers with verified implementation |                    **11 + blockchain** |
 | Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
 | Main branch                             | **Synchronized with GitHub** |
@@ -510,6 +510,31 @@ Not yet implemented:
 
 ---
 
+# ⛓️ Techuilaguy Blockchain (L1)
+
+A new domain, added directly per project direction rather than
+appearing in `PRD.md`'s original layer numbering — tracked honestly as
+such in [`PROJECT_STATE.md`](PROJECT_STATE.md) rather than folded into
+an unrelated existing layer.
+
+Current implementation is a real, single-node, persistent chain:
+
+* an account model (balance + nonce)
+* canonical, deterministic transaction serialization and hashing
+* a real state-transition function (nonce-based replay/double-spend defense, balance checks)
+* a block structure that chains to the real previous block's hash
+* real on-disk persistence, built directly on the existing storage layer's WAL-backed KV store — a genuine cross-layer integration, not a new bespoke format
+
+**Important:** transactions are not cryptographically signed yet —
+there is no asymmetric-key/identity integration, so `Chain`/`Ledger`
+never verify who is authorized to spend from an address. `stateRoot`/
+`txRoot` are whole-content hashes, not Merkle roots. There is no P2P,
+no consensus, no multiple nodes, no VM, and no smart contracts.
+
+→ [Techuilaguy Blockchain L1 ADR](docs/ADR/0021-techuilaguy-blockchain-l1.md)
+
+---
+
 # 🗺️ The Civilization Roadmap
 
 The long-term architecture spans:
@@ -550,8 +575,8 @@ The dependency graph advances as real implementations become possible.
 The current universal verification runner covers implemented subsystems across the active layers.
 
 ```text
-549 assertions
-22 test suites
+590 assertions
+23 test suites
 0 failures
 ```
 
@@ -580,6 +605,7 @@ OGGit merge
 Quantum state-vector simulator
 Vec3 + RK4 numerics
 Two-body orbital propagation
+L1 accounts/transactions/blocks/persistence
 ```
 
 Run them:
@@ -621,6 +647,8 @@ THE-OG-TECHUILAGUY/
 ├── 20-space-systems/
 │
 ├── 22-os/
+│
+├── 23-blockchain/       Techuilaguy L1 (accounts, transactions, blocks, persistence)
 │
 ├── docs/
 │   ├── ADR/
@@ -664,7 +692,8 @@ docs/ADR/
 ├── 0017  OGGit index (staging area)
 ├── 0018  OGGit checkout (tree materialization)
 ├── 0019  OGGit diff (tree comparison)
-└── 0020  OGGit merge (ancestry DAG + three-way merge)
+├── 0020  OGGit merge (ancestry DAG + three-way merge)
+└── 0021  Techuilaguy Blockchain L1
 ```
 
 The ADRs are the detailed technical record.

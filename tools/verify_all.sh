@@ -274,6 +274,10 @@ echo "Layer 20 — Space Systems"
 run_suite "Two-body orbital propagation" "20-space-systems/tests/orbital_test.sh"
 echo
 
+echo "Layer 23 — Techuilaguy Blockchain L1 (new domain, not in the original PRD numbering — see docs/ADR/0021-techuilaguy-blockchain-l1.md)"
+run_suite "L1 accounts/transactions/blocks/persistence" "23-blockchain/tests/l1_test.sh"
+echo
+
 echo "========================================"
 echo "SUMMARY"
 echo "========================================"

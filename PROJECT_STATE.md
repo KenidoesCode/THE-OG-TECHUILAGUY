@@ -17,7 +17,7 @@ because a directory, README, or interface exists.
 **Reproducing this:** `bash tools/verify_all.sh` builds and runs every
 hosted suite referenced below and prints the real, aggregated
 pass/fail counts — reproduced most recently from a clean clone of the
-current commit (22 suites, 549 assertions, 0 failures). See
+current commit (23 suites, 590 assertions, 0 failures). See
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for supported
 environments, how the runner classifies failures (code/test failure
 vs. build/toolchain failure vs. environment error), and the QEMU-
@@ -176,6 +176,20 @@ used directly by Layer 20's orbital mechanics), per
 | **Vec3 + RK4 ODE integrator** (Layer 18) | TESTED | `18-scientific-computing/`; `tests/sci_test.sh` — 9 hosted assertions against known-exact solutions (exponential decay, harmonic oscillator) and hand-computed vector algebra |
 | **Two-body orbital propagation** (Layer 20), built directly on Layer 18's RK4 | TESTED | `20-space-systems/orbital/`; `tests/orbital_test.sh` — 7 hosted assertions incl. matching the real geostationary period, circular-orbit position/velocity/radius conservation over a full period, elliptical-orbit energy conservation, and step-size accuracy scaling. A real step-count truncation bug (losing up to one full step's worth of orbital motion) was caught and fixed during development |
 | Perturbations, drag, spacecraft model, flight software, ADCS/EPS/thermal, telemetry/telecommand, digital twin, mission simulator, HIL | PLANNED | not started; general linear algebra (matrices/solvers) and adaptive-step ODE methods also not started in Layer 18 |
+
+## Layer 23 (Techuilaguy Blockchain — added per project direction, NOT in PRD.md's original layer numbering)
+
+**Status: FOUNDATION.** A single-node account/transaction/block chain
+with real persistence — the smallest real vertical slice, explicitly
+not multi-node, not consensus, not a VM, and not signed. This layer
+does not exist in `PRD.md`'s Layer 0-21 numbering (that document
+predates this addition); it is tracked here honestly as a distinct
+addition rather than folded into an unrelated existing layer number.
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **Account model, canonical transaction serialization, transaction hashing, deterministic state transition, block structure, single-node chain, real persistence** | TESTED | `23-blockchain/l1/`; `tests/l1_test.sh` — 41 hosted assertions incl. deterministic address derivation and transaction serialization, malformed-transaction-byte rejection (empty/garbage/truncated/trailing-garbage), the full state-transition rule set (insufficient balance, invalid nonce, successful apply with correct debit/credit/nonce-advance), a direct double-spend/replay rejection via the nonce check, genesis block correctness (zero previousHash, no transactions), real block-to-block hash chaining across multiple produced blocks, block header serialization round-trip and malformed-input rejection, and a genuine process-restart simulation (a second `Chain` instance over the same on-disk path recovering the identical height and historical block). Built on real cross-layer integration: SHA-256 (Layer 10), `dist::Encoder`/`Decoder` (Layer 7), and `storage::KVStore` (Layer 8) for persistence — not bespoke reimplementations. See [`docs/ADR/0021-techuilaguy-blockchain-l1.md`](docs/ADR/0021-techuilaguy-blockchain-l1.md) for the full design and extensive explicit non-goals (no signatures, no Merkle trees — whole-state/whole-tx hashes only, no P2P/consensus/multi-node, no mempool fee market, no chain reorg, no VM/contracts/L2) |
+| Signatures/identity, Merkle structures, mempool economics, P2P networking, consensus, multi-node simulation, chain reorganization, VM, smart contracts, L2 | PLANNED | none of these exist yet; this slice is deliberately a single-node, unsigned, whole-state-hash chain only |
 
 ## Layers 9, 12, 14, 16-17, 19, 21 (Security,
 Cloud,
