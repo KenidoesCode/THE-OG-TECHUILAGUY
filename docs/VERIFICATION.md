@@ -47,10 +47,11 @@ server foundation (repositories/auth/push/browse on top of OGGit), the
 Techuilaguy L1 blockchain's accounts/transactions/blocks/persistence,
 Techuilaguy NetLab's topology + L2 switch simulation engine, the
 AI Tensor + scalar-autodiff foundation (including a real linear-
-regression training convergence test), the quantum state-vector
-simulator, and the scientific-computing + orbital-mechanics numerics.
-See `PROJECT_STATE.md` for the authoritative, per-capability breakdown
-with evidence links.
+regression training convergence test), the deterministic software
+rasterizer (Mat4/FrameBuffer/rasterizer/scene), the quantum
+state-vector simulator, and the scientific-computing + orbital-
+mechanics numerics. See `PROJECT_STATE.md` for the authoritative,
+per-capability breakdown with evidence links.
 
 ### What it does NOT cover
 

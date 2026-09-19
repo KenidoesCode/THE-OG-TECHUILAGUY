@@ -17,7 +17,7 @@ because a directory, README, or interface exists.
 **Reproducing this:** `bash tools/verify_all.sh` builds and runs every
 hosted suite referenced below and prints the real, aggregated
 pass/fail counts — reproduced most recently from a clean clone of the
-current commit (26 suites, 665 assertions, 0 failures). See
+current commit (27 suites, 683 assertions, 0 failures). See
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for supported
 environments, how the runner classifies failures (code/test failure
 vs. build/toolchain failure vs. environment error), and the QEMU-
@@ -221,9 +221,24 @@ framework.
 | **Linear regression training demo** (`y = wx + b` fit via plain gradient descent on MSE, built on the autodiff engine above) | TESTED | `14-ai/training/linear_regression.*`; `tests/ai_test.sh` (33 hosted assertions total across Tensor/autodiff/training) — trains on a fixed synthetic `y=2x+3` dataset for a fixed epoch count and converges to `weight`/`bias` within a documented 0.05 tolerance every run, loss provably decreases, and inference on an unseen input generalizes correctly. See [`docs/ADR/0024-ai-tensor-autodiff-foundation.md`](docs/ADR/0024-ai-tensor-autodiff-foundation.md) for extensive explicit non-goals (no Tensor-level autodiff, no broadcasting, no neural network layers/optimizers beyond plain gradient descent, no GPU/batching) |
 | Tensor-level autodiff, neural network layers/activations, optimizers beyond plain gradient descent, GPU/accelerator support, batching, model serialization | PLANNED | none of these exist yet |
 
-## Layers 9, 12, 16-17, 19, 21 (Security,
+## Layer 17 (Graphics & simulation)
+
+**Status: FOUNDATION.** A real, deterministic CPU software rasterizer
+— no GPU/window dependency, a reasoned choice (this project's own
+hosted verification runner has no guaranteed GPU/display), not a
+fallback. Explicitly no shaders, textures, lighting, anti-aliasing,
+scene graph, or clipping yet.
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **Mat4 transforms + perspective projection** (identity/translation/scale/rotationZ, matrix multiply, real lookAt view matrix, standard perspective projection), operating on `18-scientific-computing`'s existing `Vec3` | TESTED | `17-graphics/math/mat4.*`; hand-computed expected transformed points for every operation incl. a real multi-matrix composition, and a point directly on the camera's view axis verified to project to exact NDC screen center |
+| **FrameBuffer + depth-tested triangle rasterization** (real barycentric rasterization, per-pixel depth test, occlusion correct regardless of draw order) | TESTED | `17-graphics/render/`; a pixel provably inside a triangle vs. provably outside verified at explicit coordinates; two overlapping triangles rendered in both draw orders proven to produce the identical (nearer-wins) result, not painter's-algorithm draw-order dependence |
+| **Scene rendering** (world-space triangles + camera → FrameBuffer, end to end) | TESTED | `17-graphics/scene/`; `tests/graphics_test.sh` (18 hosted assertions total across Mat4/FrameBuffer/rasterizer/scene) — a full scene render is byte-for-byte identical across repeated calls (real determinism, not "looks right"), and a triangle centered in front of the camera actually renders visibly near the screen center. See [`docs/ADR/0025-graphics-software-rasterizer-foundation.md`](docs/ADR/0025-graphics-software-rasterizer-foundation.md) for explicit non-goals (no GPU/window/interactive input, no shaders/textures/lighting, no anti-aliasing, no scene graph/asset loading, no near/far/side-plane clipping) |
+| GPU execution, windowing/interactive input, shaders, textures, lighting, anti-aliasing, scene graph, asset loading, clipping | PLANNED | none of these exist yet |
+
+## Layers 9, 12, 16, 19, 21 (Security,
 Cloud,
-Robotics, Graphics, Finance,
+Robotics, Finance,
 VLEO research)
 
 **Status: PLANNED.** No implementation exists for any of these layers.

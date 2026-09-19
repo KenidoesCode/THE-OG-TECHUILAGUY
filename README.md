@@ -8,7 +8,7 @@
 
 [![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-665%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Tests](https://img.shields.io/badge/tests-683%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
 [![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
 <br>
@@ -86,8 +86,8 @@ No subsystem is considered complete merely because a directory or API exists.
 
 | Metric                                  |                Current state |
 | ---------------------------------------- | ---------------------------: |
-| Verified assertions                     |                      **665** |
-| Test suites                             |                       **26** |
+| Verified assertions                     |                      **683** |
+| Test suites                             |                       **27** |
 | PRD layers with verified implementation |                    **11 + blockchain** |
 | Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
@@ -435,6 +435,30 @@ for exactly what is and isn't built yet.
 
 ---
 
+# 🎨 Graphics — Deterministic Software Rasterizer
+
+A real CPU software rendering pipeline — no GPU or window dependency,
+a deliberate choice (this project's hosted verification runner has no
+guaranteed GPU/display), not a fallback.
+
+Current implementation:
+
+* `Mat4` transforms (translation, scale, rotation, perspective projection, a real lookAt camera), operating on the scientific-computing layer's existing `Vec3` — a genuine cross-layer integration
+* a real barycentric-coordinate triangle rasterizer with per-pixel depth testing (correct occlusion regardless of draw order, not painter's-algorithm layering)
+* an end-to-end scene renderer: world-space triangles + a camera → framebuffer pixels, verified byte-for-byte deterministic across repeated renders
+
+Not yet implemented: GPU execution, windowing/interactive input,
+shaders/textures/lighting, anti-aliasing, a scene graph, asset loading,
+or near/far/side-plane clipping.
+
+Prepared as the rendering foundation future systems (NetLab's visual
+topology editor, Space Systems visualization, a robotics simulator, a
+game engine) can build on — none of that integration exists yet.
+
+→ [Graphics software rasterizer foundation ADR](docs/ADR/0025-graphics-software-rasterizer-foundation.md)
+
+---
+
 # 🧪 Verification
 
 Verification is treated as a first-class layer rather than an afterthought.
@@ -671,6 +695,8 @@ Vec3 + RK4 numerics
 Two-body orbital propagation
 L1 accounts/transactions/blocks/persistence
 NetLab topology + L2 switch simulation
+Tensor + autodiff + linear regression training
+Software rasterizer (Mat4/FrameBuffer/rasterizer/scene)
 ```
 
 Run them:
@@ -709,6 +735,8 @@ THE-OG-TECHUILAGUY/
 ├── 14-ai/               Tensor + scalar autodiff + linear regression training
 │
 ├── 15-quantum/
+│
+├── 17-graphics/          Deterministic software rasterizer (Mat4/FrameBuffer/rasterizer/scene)
 │
 ├── 18-scientific-computing/
 │
@@ -766,7 +794,8 @@ docs/ADR/
 ├── 0021  Techuilaguy Blockchain L1
 ├── 0022  Techuilaguy NetLab foundation
 ├── 0023  OGForge server foundation
-└── 0024  AI Tensor + autodiff foundation
+├── 0024  AI Tensor + autodiff foundation
+└── 0025  Graphics software rasterizer foundation
 ```
 
 The ADRs are the detailed technical record.

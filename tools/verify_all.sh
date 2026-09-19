@@ -287,6 +287,10 @@ echo "Layer 14 — AI/ML (Tensor + scalar autodiff foundation)"
 run_suite "Tensor + autodiff + linear regression training" "14-ai/tests/ai_test.sh"
 echo
 
+echo "Layer 17 — Graphics (deterministic software rasterizer foundation)"
+run_suite "Software rasterizer (Mat4/FrameBuffer/rasterizer/scene)" "17-graphics/tests/graphics_test.sh"
+echo
+
 echo "========================================"
 echo "SUMMARY"
 echo "========================================"
@@ -305,7 +309,7 @@ echo "hardware/emulator-dependent and run separately):"
 echo "  Layers 0-2 (physical foundations / math-CS / digital logic) — not started as standalone code"
 echo "  Layer 9 (Security) — not started as its own subsystem"
 echo "  Layer 12 (Cloud/edge) — not started"
-echo "  Layers 16-17, 19, 21 (Robotics, Graphics, Finance, VLEO) — not started"
+echo "  Layers 16, 19, 21 (Robotics, Finance, VLEO) — not started"
 echo "  22-os/tests/boot_test.sh, keyboard_test.sh — QEMU-dependent, run separately"
 echo
 
