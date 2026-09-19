@@ -1,5 +1,7 @@
 #include "index.hpp"
 
+#include "tree_builder.hpp"
+
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -36,49 +38,6 @@ std::string joinPath(const std::vector<std::string>& segments) {
         out += segments[i];
     }
     return out;
-}
-
-// A directory-shaped node built while reconstructing hierarchy from
-// the index's flat (path -> blob) entries. Deliberately not a public
-// type: it's a private intermediate step of writeTreeFromIndex, not
-// part of the index's own persisted state.
-struct TrieNode {
-    std::map<std::string, ObjectId> files;
-    std::map<std::string, TrieNode> dirs;
-};
-
-void insertPath(TrieNode& root, const std::vector<std::string>& segments, size_t index,
-                 const ObjectId& blob) {
-    if (index + 1 == segments.size()) {
-        // Landing on a file segment: if a directory of the same name
-        // already exists here, the directory wins (see index.hpp's
-        // documented conflict-resolution rule) — silently drop this
-        // file rather than files.emplace-ing alongside a same-named
-        // directory, which would make the resulting tree ambiguous.
-        if (root.dirs.count(segments[index]) == 0) {
-            root.files[segments[index]] = blob;
-        }
-        return;
-    }
-    const std::string& dirName = segments[index];
-    // A file was previously staged at exactly this directory's path;
-    // the directory wins, so drop the file entry.
-    root.files.erase(dirName);
-    insertPath(root.dirs[dirName], segments, index + 1, blob);
-}
-
-ObjectId writeTrieAsTree(const TrieNode& node, ObjectStore& store) {
-    std::vector<TreeEntry> entries;
-    entries.reserve(node.files.size() + node.dirs.size());
-    for (const auto& [name, blob] : node.files) {
-        entries.push_back(TreeEntry{name, blob, false});
-    }
-    for (const auto& [name, child] : node.dirs) {
-        ObjectId childTreeId = writeTrieAsTree(child, store);
-        entries.push_back(TreeEntry{name, childTreeId, true});
-    }
-    std::vector<uint8_t> serialized = serializeTree(entries);
-    return store.writeObject(ObjectType::Tree, serialized);
 }
 
 }  // namespace
@@ -164,13 +123,7 @@ bool Index::save() const {
 }
 
 ObjectId Index::writeTreeFromIndex(ObjectStore& store) const {
-    TrieNode root;
-    for (const auto& [path, id] : staged) {
-        std::vector<std::string> segments = splitPath(path);
-        if (segments.empty()) continue;  // defensively ignore a fully-empty path
-        insertPath(root, segments, 0, id);
-    }
-    return writeTrieAsTree(root, store);
+    return buildTreeFromPaths(store, staged);
 }
 
 }  // namespace oggit

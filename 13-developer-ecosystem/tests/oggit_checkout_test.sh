@@ -12,6 +12,7 @@ g++ -std=c++20 -Wall -Wextra -O2 \
     tests/oggit_checkout_test.cpp \
     oggit/checkout.cpp \
     oggit/index.cpp \
+    oggit/tree_builder.cpp \
     oggit/object_store.cpp \
     ../10-cryptography/hashing/sha256.cpp \
     -o tests/oggit_checkout_test_bin
