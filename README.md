@@ -8,7 +8,7 @@
 
 [![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-683%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Tests](https://img.shields.io/badge/tests-707%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
 [![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
 <br>
@@ -86,8 +86,8 @@ No subsystem is considered complete merely because a directory or API exists.
 
 | Metric                                  |                Current state |
 | ---------------------------------------- | ---------------------------: |
-| Verified assertions                     |                      **683** |
-| Test suites                             |                       **27** |
+| Verified assertions                     |                      **707** |
+| Test suites                             |                       **28** |
 | PRD layers with verified implementation |                    **11 + blockchain** |
 | Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
@@ -457,6 +457,25 @@ game engine) can build on — none of that integration exists yet.
 
 → [Graphics software rasterizer foundation ADR](docs/ADR/0025-graphics-software-rasterizer-foundation.md)
 
+## 🎮 ECS / Game Engine
+
+A real Entity-Component-System, genuinely integrated with the
+rasterizer above — its render system builds a scene from live ECS
+state and calls the existing `renderScene` unmodified, not a second
+rendering path.
+
+Current implementation:
+
+* generation-checked entity handles (a destroyed-and-recycled id's old handle correctly stays "not alive")
+* per-type component storage: `Transform`, `Velocity`, `MeshComponent`, `CameraComponent`
+* a movement system (deterministic position integration) and a render system (live ECS state → the real software rasterizer)
+
+Not yet implemented: archetype/chunked storage, arbitrary 3D rotation,
+a parent/child transform hierarchy, physics/collision, scripting,
+serialization, or an interactive loop.
+
+→ [ECS / game-engine foundation ADR](docs/ADR/0026-ecs-game-engine-foundation.md)
+
 ---
 
 # 🧪 Verification
@@ -697,6 +716,7 @@ L1 accounts/transactions/blocks/persistence
 NetLab topology + L2 switch simulation
 Tensor + autodiff + linear regression training
 Software rasterizer (Mat4/FrameBuffer/rasterizer/scene)
+ECS / game-engine foundation (integrated with the rasterizer)
 ```
 
 Run them:
@@ -736,7 +756,7 @@ THE-OG-TECHUILAGUY/
 │
 ├── 15-quantum/
 │
-├── 17-graphics/          Deterministic software rasterizer (Mat4/FrameBuffer/rasterizer/scene)
+├── 17-graphics/          Deterministic software rasterizer + ECS/game-engine foundation
 │
 ├── 18-scientific-computing/
 │
@@ -795,7 +815,8 @@ docs/ADR/
 ├── 0022  Techuilaguy NetLab foundation
 ├── 0023  OGForge server foundation
 ├── 0024  AI Tensor + autodiff foundation
-└── 0025  Graphics software rasterizer foundation
+├── 0025  Graphics software rasterizer foundation
+└── 0026  ECS / game-engine foundation
 ```
 
 The ADRs are the detailed technical record.

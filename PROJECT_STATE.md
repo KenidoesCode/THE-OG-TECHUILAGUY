@@ -17,7 +17,7 @@ because a directory, README, or interface exists.
 **Reproducing this:** `bash tools/verify_all.sh` builds and runs every
 hosted suite referenced below and prints the real, aggregated
 pass/fail counts — reproduced most recently from a clean clone of the
-current commit (27 suites, 683 assertions, 0 failures). See
+current commit (28 suites, 707 assertions, 0 failures). See
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for supported
 environments, how the runner classifies failures (code/test failure
 vs. build/toolchain failure vs. environment error), and the QEMU-
@@ -234,7 +234,8 @@ scene graph, or clipping yet.
 | **Mat4 transforms + perspective projection** (identity/translation/scale/rotationZ, matrix multiply, real lookAt view matrix, standard perspective projection), operating on `18-scientific-computing`'s existing `Vec3` | TESTED | `17-graphics/math/mat4.*`; hand-computed expected transformed points for every operation incl. a real multi-matrix composition, and a point directly on the camera's view axis verified to project to exact NDC screen center |
 | **FrameBuffer + depth-tested triangle rasterization** (real barycentric rasterization, per-pixel depth test, occlusion correct regardless of draw order) | TESTED | `17-graphics/render/`; a pixel provably inside a triangle vs. provably outside verified at explicit coordinates; two overlapping triangles rendered in both draw orders proven to produce the identical (nearer-wins) result, not painter's-algorithm draw-order dependence |
 | **Scene rendering** (world-space triangles + camera → FrameBuffer, end to end) | TESTED | `17-graphics/scene/`; `tests/graphics_test.sh` (18 hosted assertions total across Mat4/FrameBuffer/rasterizer/scene) — a full scene render is byte-for-byte identical across repeated calls (real determinism, not "looks right"), and a triangle centered in front of the camera actually renders visibly near the screen center. See [`docs/ADR/0025-graphics-software-rasterizer-foundation.md`](docs/ADR/0025-graphics-software-rasterizer-foundation.md) for explicit non-goals (no GPU/window/interactive input, no shaders/textures/lighting, no anti-aliasing, no scene graph/asset loading, no near/far/side-plane clipping) |
-| GPU execution, windowing/interactive input, shaders, textures, lighting, anti-aliasing, scene graph, asset loading, clipping | PLANNED | none of these exist yet |
+| **ECS / game-engine foundation** (generation-checked entities, per-type component pools, Transform/Velocity/Mesh/Camera components, a movement system, and a render system genuinely integrated with the software rasterizer above) | TESTED | `17-graphics/ecs/`; `tests/ecs_test.sh` — 24 hosted assertions incl. a stale-entity-handle defense (a recycled numeric id's OLD handle correctly stays "not alive" via generation mismatch), component independence across types, `Transform::toMatrix()` matching a hand-computed translate+rotate+scale composition, deterministic multi-step movement integration, `renderWorld` correctly calling the real (unmodified) `graphics::renderScene`, live ECS state (moving/destroying an entity) provably changing subsequent renders rather than a cached scene, and full render determinism. See [`docs/ADR/0026-ecs-game-engine-foundation.md`](docs/ADR/0026-ecs-game-engine-foundation.md) for explicit non-goals (no archetype storage, no arbitrary 3D rotation, no scene-graph hierarchy, no physics/collision/audio/input/networking, no scripting/serialization) |
+| GPU execution, windowing/interactive input, shaders, textures, lighting, anti-aliasing, scene graph, asset loading, clipping, physics/collision, scripting | PLANNED | none of these exist yet |
 
 ## Layers 9, 12, 16, 19, 21 (Security,
 Cloud,

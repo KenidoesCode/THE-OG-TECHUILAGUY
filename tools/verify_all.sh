@@ -289,6 +289,7 @@ echo
 
 echo "Layer 17 — Graphics (deterministic software rasterizer foundation)"
 run_suite "Software rasterizer (Mat4/FrameBuffer/rasterizer/scene)" "17-graphics/tests/graphics_test.sh"
+run_suite "ECS / game-engine foundation (integrated with the rasterizer)" "17-graphics/tests/ecs_test.sh"
 echo
 
 echo "========================================"
