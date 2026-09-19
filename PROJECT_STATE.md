@@ -119,7 +119,8 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | Requirement | Status | Evidence |
 |---|---|---|
 | **OGGit content-addressed object store** (blob/tree/commit, SHA-256-based, real disk I/O) | TESTED | `13-developer-ecosystem/oggit/`; `tests/oggit_object_store_test.sh` — 24 hosted assertions (round trips, content-addressing determinism, corrupted-object detection via re-hash on read, canonical tree ordering, commit parent-count variations, full commit→tree→blob reconstruction). Genuine integration with Layer 10's SHA-256, not a reimplementation. See [`docs/ADR/0007-oggit-object-store.md`](docs/ADR/0007-oggit-object-store.md) |
-| OGGit refs/branches/merge/remote sync, OGForge, OGRegistry, OGJudge | PLANNED | no ref/branch concept, working-directory model, or remote transport exists yet; OGForge/OGRegistry/OGJudge not started |
+| **OGGit refs, HEAD, first-parent history** (branches, symbolic/detached HEAD, ancestry walk) | TESTED | `13-developer-ecosystem/oggit/refs.*`; `tests/oggit_refs_test.sh` — 18 hosted assertions incl. a branch moving while HEAD symbolically follows it, clean failure on an empty repo, and first-parent history on a real merge commit correctly excluding the other parent's chain. See [`docs/ADR/0014-oggit-refs.md`](docs/ADR/0014-oggit-refs.md) |
+| OGGit index/working-tree/diff/merge/remote sync, OGForge, OGRegistry, OGJudge | PLANNED | no staging area, diff, or merge algorithm exists yet; no remote transport; OGForge/OGRegistry/OGJudge not started |
 
 ## Layer 7 (Distributed Systems)
 
