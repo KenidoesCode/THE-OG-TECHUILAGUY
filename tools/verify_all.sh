@@ -284,6 +284,7 @@ run_suite "NetLab topology + L2 switch simulation" "24-network-simulator/tests/n
 run_suite "NetLab IPv4/ARP/routing + first mission" "24-network-simulator/tests/ip_routing_test.sh"
 run_suite "NetLab packet inspector" "24-network-simulator/tests/packet_inspector_test.sh"
 run_suite "NetLab timeline session (step/rewind/replay)" "24-network-simulator/tests/simulation_session_test.sh"
+run_suite "NetLab browser-foundation facade (pre-WASM API)" "24-network-simulator/tests/facade_test.sh"
 echo
 
 echo "Layer 14 — AI/ML (Tensor + scalar autodiff foundation)"

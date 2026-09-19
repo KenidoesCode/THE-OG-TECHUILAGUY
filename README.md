@@ -8,7 +8,7 @@
 
 [![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-783%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Tests](https://img.shields.io/badge/tests-797%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
 [![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
 <br>
@@ -86,8 +86,8 @@ No subsystem is considered complete merely because a directory or API exists.
 
 | Metric                                  |                Current state |
 | ---------------------------------------- | ---------------------------: |
-| Verified assertions                     |                      **783** |
-| Test suites                             |                       **32** |
+| Verified assertions                     |                      **797** |
+| Test suites                             |                       **33** |
 | PRD layers with verified implementation |                    **11 + blockchain** |
 | Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
@@ -663,6 +663,9 @@ Current implementation:
 * a simulation core with no OS/UI dependency, designed (not yet built) to eventually compile to WebAssembly for a browser front end
 * a packet inspector that decodes a real captured frame's actual header fields (Ethernet/ARP/IPv4/ICMP) into human-readable summaries, using only `06-networking`'s existing parse functions
 * a timeline session supporting step forward, step backward (rewind), jump-to, and reset over an already-computed simulation timeline — the UI-independent core a future timeline UI would drive (Phase 1 of the NetLab product build)
+* `NetLabFacade` — a single, coherent API consolidating the above into the shape a future WebAssembly binding would wrap, proven to faithfully reproduce (not alter) the underlying pieces it composes
+
+**Important — honestly disclosed toolchain gap:** this project's execution environment has no Emscripten toolchain (`emcc`), so **no WebAssembly build and no browser UI exist yet** — `NetLabFacade` is designed to be bindable once a toolchain is available, but nothing has actually been compiled to WASM or run in a browser. This is reported as a concrete blocker, not implied to be done.
 
 Not yet implemented: multi-hop routing, DHCP/DNS/TCP/UDP, a
 persistent ARP cache, latency/loss/bandwidth simulation, a visual
@@ -674,6 +677,8 @@ missions, and grading/XP/skill-tree/classroom mode.
 → [NetLab IPv4/ARP/routing + first mission ADR](docs/ADR/0028-netlab-ip-arp-routing-mission.md)
 
 → [NetLab packet inspector + timeline session ADR](docs/ADR/0029-netlab-packet-inspector-and-timeline-session.md)
+
+→ [NetLab browser-foundation facade ADR](docs/ADR/0030-netlab-browser-foundation-facade.md)
 
 ---
 
@@ -859,9 +864,11 @@ docs/ADR/
 ├── 0026  ECS / game-engine foundation
 ├── 0027  Robotics planar-arm foundation
 ├── 0028  NetLab IPv4/ARP/routing + first mission
-└── 0029  NetLab packet inspector + timeline session
+├── 0029  NetLab packet inspector + timeline session
+└── 0030  NetLab browser-foundation facade (pre-WASM API)
 NetLab packet inspector
 NetLab timeline session (step/rewind/replay)
+NetLab browser-foundation facade (pre-WASM API)
 ```
 
 The ADRs are the detailed technical record.

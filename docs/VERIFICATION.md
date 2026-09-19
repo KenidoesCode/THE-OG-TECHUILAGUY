@@ -46,8 +46,10 @@ history, index/staging area, checkout, diff, and merge, OGForge's
 server foundation (repositories/auth/push/browse on top of OGGit), the
 Techuilaguy L1 blockchain's accounts/transactions/blocks/persistence,
 Techuilaguy NetLab's topology + L2 switch simulation engine, its
-IPv4/ARP/single-hop-routing + first-mission layer, and its packet
-inspector + timeline-session core, the
+IPv4/ARP/single-hop-routing + first-mission layer, its packet
+inspector + timeline-session core, and its pre-WASM browser-foundation
+facade (no actual WebAssembly build exists — this environment has no
+Emscripten toolchain), the
 AI Tensor + scalar-autodiff foundation (including a real linear-
 regression training convergence test), the deterministic software
 rasterizer (Mat4/FrameBuffer/rasterizer/scene), an ECS/game-engine
