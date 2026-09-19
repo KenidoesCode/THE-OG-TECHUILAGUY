@@ -278,6 +278,10 @@ echo "Layer 23 — Techuilaguy Blockchain L1 (new domain, not in the original PR
 run_suite "L1 accounts/transactions/blocks/persistence" "23-blockchain/tests/l1_test.sh"
 echo
 
+echo "Layer 24 — Techuilaguy NetLab (network simulator foundation; part of Layer 6's FR-NET-3 scope — see docs/ADR/0022-techuilaguy-netlab-foundation.md)"
+run_suite "NetLab topology + L2 switch simulation" "24-network-simulator/tests/netlab_test.sh"
+echo
+
 echo "========================================"
 echo "SUMMARY"
 echo "========================================"

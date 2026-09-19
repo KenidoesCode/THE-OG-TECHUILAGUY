@@ -17,7 +17,7 @@ because a directory, README, or interface exists.
 **Reproducing this:** `bash tools/verify_all.sh` builds and runs every
 hosted suite referenced below and prints the real, aggregated
 pass/fail counts — reproduced most recently from a clean clone of the
-current commit (23 suites, 590 assertions, 0 failures). See
+current commit (24 suites, 608 assertions, 0 failures). See
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for supported
 environments, how the runner classifies failures (code/test failure
 vs. build/toolchain failure vs. environment error), and the QEMU-
@@ -113,7 +113,8 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 |---|---|---|
 | **Protocol codec layer**: Ethernet, ARP, IPv4, ICMP, UDP — real parsing/serialization/checksums against the actual RFCs (826/791/792/768) | TESTED | `06-networking/protocols/`; `tests/protocols_test.sh` — 40 hosted unit assertions (round-trip + every realistic rejection case per protocol: truncated buffers, wrong ARP hardware type/address lengths/opcode, wrong IPv4 version/IHL/totalLength, corrupted checksums, UDP pseudo-header participation, RFC 768's zero-checksum rule). Pure arithmetic over a byte buffer, no hardware/OS dependency; see [`docs/ADR/0005-networking-protocol-layer.md`](docs/ADR/0005-networking-protocol-layer.md) |
 | NIC driver, TCP, sockets API, routing, ARP cache | PLANNED | no network interface card driver exists anywhere in the repository; TCP's stateful protocol is deliberately deferred rather than attempted partially |
-| TLS/QUIC/HTTP (FR-NET-2), gamified network simulator (FR-NET-3) | PLANNED | both depend on TCP, which doesn't exist yet |
+| TLS/QUIC/HTTP (FR-NET-2) | PLANNED | depends on TCP, which doesn't exist yet |
+| Gamified network simulator (FR-NET-3) — see Layer 24 below | FOUNDATION | the simulation-engine foundation (topology, real Ethernet frames, L2 switch learning) now exists independently of TCP — see Layer 24 |
 
 ## Layer 10 (Cryptography & PQC)
 
@@ -190,6 +191,18 @@ addition rather than folded into an unrelated existing layer number.
 |---|---|---|
 | **Account model, canonical transaction serialization, transaction hashing, deterministic state transition, block structure, single-node chain, real persistence** | TESTED | `23-blockchain/l1/`; `tests/l1_test.sh` — 41 hosted assertions incl. deterministic address derivation and transaction serialization, malformed-transaction-byte rejection (empty/garbage/truncated/trailing-garbage), the full state-transition rule set (insufficient balance, invalid nonce, successful apply with correct debit/credit/nonce-advance), a direct double-spend/replay rejection via the nonce check, genesis block correctness (zero previousHash, no transactions), real block-to-block hash chaining across multiple produced blocks, block header serialization round-trip and malformed-input rejection, and a genuine process-restart simulation (a second `Chain` instance over the same on-disk path recovering the identical height and historical block). Built on real cross-layer integration: SHA-256 (Layer 10), `dist::Encoder`/`Decoder` (Layer 7), and `storage::KVStore` (Layer 8) for persistence — not bespoke reimplementations. See [`docs/ADR/0021-techuilaguy-blockchain-l1.md`](docs/ADR/0021-techuilaguy-blockchain-l1.md) for the full design and extensive explicit non-goals (no signatures, no Merkle trees — whole-state/whole-tx hashes only, no P2P/consensus/multi-node, no mempool fee market, no chain reorg, no VM/contracts/L2) |
 | Signatures/identity, Merkle structures, mempool economics, P2P networking, consensus, multi-node simulation, chain reorganization, VM, smart contracts, L2 | PLANNED | none of these exist yet; this slice is deliberately a single-node, unsigned, whole-state-hash chain only |
+
+## Layer 24 (Techuilaguy NetLab — network simulator, fulfilling PRD Layer 6's FR-NET-3)
+
+**Status: FOUNDATION.** A real (simplified) L2 network simulation
+engine — topology graph, real Ethernet frames, and genuine
+learning-switch behavior — with no IP/ARP/DHCP/DNS protocol behavior,
+no visual editor, and no missions/grading/XP yet.
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **Simulation engine: Node/Link topology graph, real Ethernet frames, L2 switch MAC learning + flooding** | TESTED | `24-network-simulator/netlab/`; `tests/netlab_test.sh` — 18 hosted assertions incl. a real Ethernet frame round-tripping through `06-networking`'s actual codec (genuine cross-layer reuse, not a reimplementation), unicast delivery through a switch that does NOT reach an uninvolved third host, an unknown-destination frame correctly flooding, a learning switch correctly forwarding a reply to only the learned port after one prior frame (not flooding again), broadcast reaching every host, an unreachable-MAC frame delivered to nobody without error, and a genuinely cyclic topology terminating without hanging or crashing (explicitly not "correctly" simulating the cycle — no spanning-tree protocol exists). See [`docs/ADR/0022-techuilaguy-netlab-foundation.md`](docs/ADR/0022-techuilaguy-netlab-foundation.md) |
+| ARP/IPv4/ICMP/DHCP/DNS/TCP behavior over the simulated frames, routers/VLANs/NAT/firewalls, latency/loss/bandwidth simulation, visual topology editor, packet capture UI, missions/grading/XP/skill tree, multiplayer, save/load | PLANNED | none of these exist yet; this is the frame-delivery engine only |
 
 ## Layers 9, 12, 14, 16-17, 19, 21 (Security,
 Cloud,

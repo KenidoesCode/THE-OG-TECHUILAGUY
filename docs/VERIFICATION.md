@@ -44,7 +44,8 @@ suites, the write-ahead-log + KV store, SHA-256 and HMAC-SHA256,
 cross-layer property-based tests, OGGit's object store, refs/HEAD
 history, index/staging area, checkout, diff, and merge, the
 Techuilaguy L1 blockchain's accounts/transactions/blocks/persistence,
-the quantum state-vector simulator, and the scientific-
+Techuilaguy NetLab's topology + L2 switch simulation engine, the
+quantum state-vector simulator, and the scientific-
 computing + orbital-mechanics numerics. See `PROJECT_STATE.md` for the
 authoritative, per-capability breakdown with evidence links.
 

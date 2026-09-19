@@ -8,7 +8,7 @@
 
 [![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-590%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Tests](https://img.shields.io/badge/tests-608%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
 [![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
 <br>
@@ -86,8 +86,8 @@ No subsystem is considered complete merely because a directory or API exists.
 
 | Metric                                  |                Current state |
 | ---------------------------------------- | ---------------------------: |
-| Verified assertions                     |                      **590** |
-| Test suites                             |                       **23** |
+| Verified assertions                     |                      **608** |
+| Test suites                             |                       **24** |
 | PRD layers with verified implementation |                    **11 + blockchain** |
 | Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
@@ -535,6 +535,27 @@ no consensus, no multiple nodes, no VM, and no smart contracts.
 
 ---
 
+# 🌐 Techuilaguy NetLab
+
+An original (not Cisco-derived) educational network simulation engine
+— the foundation for the project's gamified network simulator
+direction.
+
+Current implementation:
+
+* a topology graph of Host and Switch nodes connected by links
+* real simulated Ethernet frames, built directly on `06-networking`'s actual wire-format codec
+* genuine (simplified) L2 switch behavior: MAC learning + flooding, not a hardcoded routing table
+
+Not yet implemented: ARP/IPv4/ICMP/DHCP/DNS/TCP behavior over these
+frames, routers/VLANs/NAT/firewalls, latency/loss/bandwidth
+simulation, a visual topology editor, packet capture UI, and any
+missions/grading/XP/skill-tree layer.
+
+→ [Techuilaguy NetLab ADR](docs/ADR/0022-techuilaguy-netlab-foundation.md)
+
+---
+
 # 🗺️ The Civilization Roadmap
 
 The long-term architecture spans:
@@ -575,8 +596,8 @@ The dependency graph advances as real implementations become possible.
 The current universal verification runner covers implemented subsystems across the active layers.
 
 ```text
-590 assertions
-23 test suites
+608 assertions
+24 test suites
 0 failures
 ```
 
@@ -606,6 +627,7 @@ Quantum state-vector simulator
 Vec3 + RK4 numerics
 Two-body orbital propagation
 L1 accounts/transactions/blocks/persistence
+NetLab topology + L2 switch simulation
 ```
 
 Run them:
@@ -650,6 +672,8 @@ THE-OG-TECHUILAGUY/
 │
 ├── 23-blockchain/       Techuilaguy L1 (accounts, transactions, blocks, persistence)
 │
+├── 24-network-simulator/  Techuilaguy NetLab (topology + L2 switch simulation engine)
+│
 ├── docs/
 │   ├── ADR/
 │   └── VERIFICATION.md
@@ -693,7 +717,8 @@ docs/ADR/
 ├── 0018  OGGit checkout (tree materialization)
 ├── 0019  OGGit diff (tree comparison)
 ├── 0020  OGGit merge (ancestry DAG + three-way merge)
-└── 0021  Techuilaguy Blockchain L1
+├── 0021  Techuilaguy Blockchain L1
+└── 0022  Techuilaguy NetLab foundation
 ```
 
 The ADRs are the detailed technical record.
