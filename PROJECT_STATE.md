@@ -152,10 +152,22 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | **Classical state-vector simulator** (X/Z/H/CNOT gates, measurement, Bell/GHZ correctness) | TESTED | `15-quantum/simulator/`; `tests/qsim_test.sh` — 17 hosted assertions: exact amplitude checks (X/Z/H/CNOT/Bell state), measurement-correlation over 1000 (Bell) and 500 (GHZ) trials, collapse verification, and a property test (real integration with Layer 11) confirming total probability stays 1.0 across 300 random gate sequences. See [`docs/ADR/0015-quantum-simulator.md`](docs/ADR/0015-quantum-simulator.md) |
 | Algorithm library (Deutsch-Jozsa/Grover/QFT/Shor prototype), noise models, error correction, circuit representation | PLANNED | not started; Bell/GHZ states are constructed directly in tests, not as reusable named circuits |
 
-## Layers 9, 12, 14, 16-21 (Security,
+## Layer 18 (Scientific Computing) + Layer 20 (Space Systems)
+
+Built together as a deliberate dependency chain (Layer 18's numerics
+used directly by Layer 20's orbital mechanics), per
+[`docs/ADR/0016-scientific-computing-linalg.md`](docs/ADR/0016-scientific-computing-linalg.md).
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **Vec3 + RK4 ODE integrator** (Layer 18) | TESTED | `18-scientific-computing/`; `tests/sci_test.sh` — 9 hosted assertions against known-exact solutions (exponential decay, harmonic oscillator) and hand-computed vector algebra |
+| **Two-body orbital propagation** (Layer 20), built directly on Layer 18's RK4 | TESTED | `20-space-systems/orbital/`; `tests/orbital_test.sh` — 7 hosted assertions incl. matching the real geostationary period, circular-orbit position/velocity/radius conservation over a full period, elliptical-orbit energy conservation, and step-size accuracy scaling. A real step-count truncation bug (losing up to one full step's worth of orbital motion) was caught and fixed during development |
+| Perturbations, drag, spacecraft model, flight software, ADCS/EPS/thermal, telemetry/telecommand, digital twin, mission simulator, HIL | PLANNED | not started; general linear algebra (matrices/solvers) and adaptive-step ODE methods also not started in Layer 18 |
+
+## Layers 9, 12, 14, 16-17, 19, 21 (Security,
 Cloud,
-AI/ML, Robotics, Graphics, Scientific Computing, Finance,
-Space Systems, VLEO research)
+AI/ML, Robotics, Graphics, Finance,
+VLEO research)
 
 **Status: PLANNED.** No implementation exists for any of these layers.
 This is stated plainly rather than represented by an empty directory,

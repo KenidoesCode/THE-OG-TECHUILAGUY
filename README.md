@@ -349,7 +349,8 @@ heap, filesystem, or networking are implemented yet — see
 - [x] Layer 8 Storage — a real CRC-32-checked write-ahead log and a durable KV store built on it (crash-tested via genuine on-disk corruption/truncation simulation, 23 hosted tests, reusing Layer 7's serialization codec); no block-device abstraction, transactions, or replication yet (see [ADR 0010](docs/ADR/0010-storage-wal.md))
 - [x] Layer 11 Formal Verification — a real, seeded property-based testing framework applied to 5 genuine subsystems across networking/distributed-systems/storage/crypto/the OS (RPC serialization round-trip, HMAC determinism, WAL exactness, ELF-loader and network-parser fuzz robustness against thousands of random inputs each); no shrinking, model checking, or coverage-guided fuzzing yet (see [ADR 0013](docs/ADR/0013-property-testing.md))
 - [x] Layer 15 Quantum — a real classical state-vector simulator (X/Z/H/CNOT gates, measurement, exact Bell/GHZ amplitude verification plus correlation checked over 1500 combined measurement trials, a property test integrating Layer 11); no algorithm library, noise model, or error correction yet (see [ADR 0015](docs/ADR/0015-quantum-simulator.md))
-- [ ] Cloud, AI, Space Systems
+- [x] Layer 18 Scientific Computing + Layer 20 Space Systems — Vec3/RK4 numerics (verified against known-exact ODE solutions) used directly by a real two-body orbital propagator (verified against the real geostationary period, circular-orbit conservation, and elliptical-orbit energy conservation — a real step-count truncation bug was caught and fixed); no perturbations, spacecraft model, or mission simulator yet (see [ADR 0016](docs/ADR/0016-scientific-computing-linalg.md))
+- [ ] Cloud, AI
 
 See [`PROJECT_STATE.md`](./PROJECT_STATE.md) for the full, honestly-labeled
 per-layer status of every PRD requirement, not just this summary.

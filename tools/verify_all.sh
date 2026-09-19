@@ -135,6 +135,14 @@ echo "Layer 15 — Quantum"
 run_suite "Quantum state-vector simulator" "15-quantum/tests/qsim_test.sh"
 echo
 
+echo "Layer 18 — Scientific Computing"
+run_suite "Vec3 + RK4 numerics" "18-scientific-computing/tests/sci_test.sh"
+echo
+
+echo "Layer 20 — Space Systems"
+run_suite "Two-body orbital propagation" "20-space-systems/tests/orbital_test.sh"
+echo
+
 echo "========================================"
 echo "SUMMARY"
 echo "========================================"
@@ -150,7 +158,7 @@ echo "hardware/emulator-dependent and run separately):"
 echo "  Layers 0-2 (physical foundations / math-CS / digital logic) — not started as standalone code"
 echo "  Layer 9 (Security) — not started as its own subsystem"
 echo "  Layer 12 (Cloud/edge) — not started"
-echo "  Layers 14, 16-21 (AI/ML, Vision, Robotics, Graphics, Scientific Computing, Finance, Space, VLEO) — not started"
+echo "  Layers 14, 16-17, 19, 21 (AI/ML, Vision, Robotics, Graphics, Finance, VLEO) — not started"
 echo "  22-os/tests/boot_test.sh, keyboard_test.sh — QEMU-dependent, run separately"
 echo
 
