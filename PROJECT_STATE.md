@@ -17,7 +17,7 @@ because a directory, README, or interface exists.
 **Reproducing this:** `bash tools/verify_all.sh` builds and runs every
 hosted suite referenced below and prints the real, aggregated
 pass/fail counts — reproduced most recently from a clean clone of the
-current commit (28 suites, 707 assertions, 0 failures). See
+current commit (29 suites, 716 assertions, 0 failures). See
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for supported
 environments, how the runner classifies failures (code/test failure
 vs. build/toolchain failure vs. environment error), and the QEMU-
@@ -237,9 +237,22 @@ scene graph, or clipping yet.
 | **ECS / game-engine foundation** (generation-checked entities, per-type component pools, Transform/Velocity/Mesh/Camera components, a movement system, and a render system genuinely integrated with the software rasterizer above) | TESTED | `17-graphics/ecs/`; `tests/ecs_test.sh` — 24 hosted assertions incl. a stale-entity-handle defense (a recycled numeric id's OLD handle correctly stays "not alive" via generation mismatch), component independence across types, `Transform::toMatrix()` matching a hand-computed translate+rotate+scale composition, deterministic multi-step movement integration, `renderWorld` correctly calling the real (unmodified) `graphics::renderScene`, live ECS state (moving/destroying an entity) provably changing subsequent renders rather than a cached scene, and full render determinism. See [`docs/ADR/0026-ecs-game-engine-foundation.md`](docs/ADR/0026-ecs-game-engine-foundation.md) for explicit non-goals (no archetype storage, no arbitrary 3D rotation, no scene-graph hierarchy, no physics/collision/audio/input/networking, no scripting/serialization) |
 | GPU execution, windowing/interactive input, shaders, textures, lighting, anti-aliasing, scene graph, asset loading, clipping, physics/collision, scripting | PLANNED | none of these exist yet |
 
-## Layers 9, 12, 16, 19, 21 (Security,
+## Layer 16 (Robotics & autonomy)
+
+**Status: FOUNDATION.** Real forward kinematics for a 2-link planar
+arm and a real proportional joint controller, verified against an
+independent closed-form analytic solution. No inverse kinematics, no
+dynamics, no sensors, no PID, no collision/path planning.
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **2-link planar-arm forward kinematics** (standard closed-form trigonometric chain, built on `18-scientific-computing`'s `Vec3`) | TESTED | `16-robotics/kinematics/`; hand-computed expected end-effector positions for zero-angle, 90-degree-first-joint, and second-joint-bend configurations, plus a zero-length-second-link identity check |
+| **Proportional (P-only) joint controller + simulated control loop** | TESTED | `16-robotics/control/`; `tests/robotics_test.sh` (9 hosted assertions total) — a single control step matches the hand-derived update exactly; the simulated controller's error after N fixed-dt steps matches an independently-derived closed-form `(1-gain·dt)^N` prediction (not just "got closer"); a full simulated control loop converges the end-effector to within a tight tolerance of the true target configuration's forward kinematics; and the simulation is bit-for-bit deterministic across repeated runs. See [`docs/ADR/0027-robotics-planar-arm-foundation.md`](docs/ADR/0027-robotics-planar-arm-foundation.md) for explicit non-goals (no inverse kinematics, no 3D/arbitrary-link kinematics, no dynamics, no sensors, no PID, no collision/path planning, no visualization integration yet) |
+| Inverse kinematics, dynamics, sensors/SLAM, PID, collision/path planning, multi-arm/swarm coordination, Graphics/ECS visualization integration | PLANNED | none of these exist yet |
+
+## Layers 9, 12, 19, 21 (Security,
 Cloud,
-Robotics, Finance,
+Finance,
 VLEO research)
 
 **Status: PLANNED.** No implementation exists for any of these layers.

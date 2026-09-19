@@ -49,10 +49,11 @@ Techuilaguy NetLab's topology + L2 switch simulation engine, the
 AI Tensor + scalar-autodiff foundation (including a real linear-
 regression training convergence test), the deterministic software
 rasterizer (Mat4/FrameBuffer/rasterizer/scene), an ECS/game-engine
-foundation genuinely integrated with that rasterizer, the quantum
-state-vector simulator, and the scientific-computing + orbital-
-mechanics numerics. See `PROJECT_STATE.md` for the authoritative,
-per-capability breakdown with evidence links.
+foundation genuinely integrated with that rasterizer, a planar-arm
+robotics forward-kinematics + proportional-control foundation, the
+quantum state-vector simulator, and the scientific-computing +
+orbital-mechanics numerics. See `PROJECT_STATE.md` for the
+authoritative, per-capability breakdown with evidence links.
 
 ### What it does NOT cover
 

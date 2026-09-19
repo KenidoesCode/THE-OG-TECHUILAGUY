@@ -8,7 +8,7 @@
 
 [![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-707%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Tests](https://img.shields.io/badge/tests-716%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
 [![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
 <br>
@@ -86,8 +86,8 @@ No subsystem is considered complete merely because a directory or API exists.
 
 | Metric                                  |                Current state |
 | ---------------------------------------- | ---------------------------: |
-| Verified assertions                     |                      **707** |
-| Test suites                             |                       **28** |
+| Verified assertions                     |                      **716** |
+| Test suites                             |                       **29** |
 | PRD layers with verified implementation |                    **11 + blockchain** |
 | Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
@@ -478,6 +478,27 @@ serialization, or an interactive loop.
 
 ---
 
+# 🦾 Robotics
+
+Real forward kinematics for a 2-link planar arm and a real
+proportional joint controller — a genuine closed-loop control
+simulation, verified against an independent closed-form analytic
+solution, not just "got closer to target."
+
+Current implementation:
+
+* standard closed-form 2-link planar forward kinematics, built on the scientific-computing layer's `Vec3`
+* a proportional (P-only) joint controller
+* a simulated control loop verified against the exact analytic `error(0)·(1-gain·dt)^N` solution
+
+Not yet implemented: inverse kinematics, 3D/arbitrary-link kinematics,
+dynamics, sensors/SLAM, PID, collision/path planning, or a
+visualization integration with Graphics/ECS.
+
+→ [Robotics planar-arm foundation ADR](docs/ADR/0027-robotics-planar-arm-foundation.md)
+
+---
+
 # 🧪 Verification
 
 Verification is treated as a first-class layer rather than an afterthought.
@@ -717,6 +738,7 @@ NetLab topology + L2 switch simulation
 Tensor + autodiff + linear regression training
 Software rasterizer (Mat4/FrameBuffer/rasterizer/scene)
 ECS / game-engine foundation (integrated with the rasterizer)
+Planar-arm forward kinematics + proportional control
 ```
 
 Run them:
@@ -755,6 +777,8 @@ THE-OG-TECHUILAGUY/
 ├── 14-ai/               Tensor + scalar autodiff + linear regression training
 │
 ├── 15-quantum/
+│
+├── 16-robotics/          Planar-arm forward kinematics + proportional control
 │
 ├── 17-graphics/          Deterministic software rasterizer + ECS/game-engine foundation
 │
@@ -816,7 +840,8 @@ docs/ADR/
 ├── 0023  OGForge server foundation
 ├── 0024  AI Tensor + autodiff foundation
 ├── 0025  Graphics software rasterizer foundation
-└── 0026  ECS / game-engine foundation
+├── 0026  ECS / game-engine foundation
+└── 0027  Robotics planar-arm foundation
 ```
 
 The ADRs are the detailed technical record.

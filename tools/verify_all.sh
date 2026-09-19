@@ -292,6 +292,10 @@ run_suite "Software rasterizer (Mat4/FrameBuffer/rasterizer/scene)" "17-graphics
 run_suite "ECS / game-engine foundation (integrated with the rasterizer)" "17-graphics/tests/ecs_test.sh"
 echo
 
+echo "Layer 16 — Robotics & autonomy (planar-arm kinematics + P-control foundation)"
+run_suite "Planar-arm forward kinematics + proportional control" "16-robotics/tests/robotics_test.sh"
+echo
+
 echo "========================================"
 echo "SUMMARY"
 echo "========================================"
@@ -310,7 +314,7 @@ echo "hardware/emulator-dependent and run separately):"
 echo "  Layers 0-2 (physical foundations / math-CS / digital logic) — not started as standalone code"
 echo "  Layer 9 (Security) — not started as its own subsystem"
 echo "  Layer 12 (Cloud/edge) — not started"
-echo "  Layers 16, 19, 21 (Robotics, Finance, VLEO) — not started"
+echo "  Layers 19, 21 (Finance, VLEO) — not started"
 echo "  22-os/tests/boot_test.sh, keyboard_test.sh — QEMU-dependent, run separately"
 echo
 
