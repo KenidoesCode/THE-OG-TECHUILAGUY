@@ -145,9 +145,16 @@ boot behavior), `tests/keyboard_test.sh` (real injected PS/2 input),
 | **Property-based testing framework**, applied to 5 real subsystems across 4 layers + the OS | TESTED | `11-verification/`; `tests/property_tests.sh` — seeded/reproducible generation (`Random`/`forAll`), applied to: RPC serialization round-trip (Layer 7), HMAC determinism (Layer 10), WAL append/recover exactness against real disk I/O (Layer 8), and fuzz-style crash-robustness of the ELF loader and every network parser (Layer 6) across thousands of random buffers each — all passed on first run. See [`docs/ADR/0013-property-testing.md`](docs/ADR/0013-property-testing.md) |
 | Shrinking, model checking, symbolic execution, coverage-guided fuzzing, chaos testing infrastructure | PLANNED | not started (Raft's own deterministic-simulation fault injection in Layer 7 is the only chaos-testing-adjacent infrastructure that exists) |
 
-## Layers 9, 12, 14-21 (Security,
+## Layer 15 (Quantum)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| **Classical state-vector simulator** (X/Z/H/CNOT gates, measurement, Bell/GHZ correctness) | TESTED | `15-quantum/simulator/`; `tests/qsim_test.sh` — 17 hosted assertions: exact amplitude checks (X/Z/H/CNOT/Bell state), measurement-correlation over 1000 (Bell) and 500 (GHZ) trials, collapse verification, and a property test (real integration with Layer 11) confirming total probability stays 1.0 across 300 random gate sequences. See [`docs/ADR/0015-quantum-simulator.md`](docs/ADR/0015-quantum-simulator.md) |
+| Algorithm library (Deutsch-Jozsa/Grover/QFT/Shor prototype), noise models, error correction, circuit representation | PLANNED | not started; Bell/GHZ states are constructed directly in tests, not as reusable named circuits |
+
+## Layers 9, 12, 14, 16-21 (Security,
 Cloud,
-AI/ML, Quantum, Robotics, Graphics, Scientific Computing, Finance,
+AI/ML, Robotics, Graphics, Scientific Computing, Finance,
 Space Systems, VLEO research)
 
 **Status: PLANNED.** No implementation exists for any of these layers.

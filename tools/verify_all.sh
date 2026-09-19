@@ -131,6 +131,10 @@ run_suite "OGGit object store" "13-developer-ecosystem/tests/oggit_object_store_
 run_suite "OGGit refs/HEAD/history" "13-developer-ecosystem/tests/oggit_refs_test.sh"
 echo
 
+echo "Layer 15 — Quantum"
+run_suite "Quantum state-vector simulator" "15-quantum/tests/qsim_test.sh"
+echo
+
 echo "========================================"
 echo "SUMMARY"
 echo "========================================"
@@ -146,7 +150,7 @@ echo "hardware/emulator-dependent and run separately):"
 echo "  Layers 0-2 (physical foundations / math-CS / digital logic) — not started as standalone code"
 echo "  Layer 9 (Security) — not started as its own subsystem"
 echo "  Layer 12 (Cloud/edge) — not started"
-echo "  Layers 14-21 (AI/ML, Vision, Quantum, Robotics, Graphics, Scientific Computing, Finance, Space, VLEO) — not started"
+echo "  Layers 14, 16-21 (AI/ML, Vision, Robotics, Graphics, Scientific Computing, Finance, Space, VLEO) — not started"
 echo "  22-os/tests/boot_test.sh, keyboard_test.sh — QEMU-dependent, run separately"
 echo
 
