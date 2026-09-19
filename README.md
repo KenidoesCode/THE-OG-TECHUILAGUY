@@ -8,7 +8,7 @@
 
 [![Status](https://img.shields.io/badge/status-early%20development-orange?style=for-the-badge)](PROJECT_STATE.md)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-716%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
+[![Tests](https://img.shields.io/badge/tests-738%20passing-brightgreen?style=for-the-badge)](tools/verify_all.sh)
 [![Layers](https://img.shields.io/badge/verified%20layers-11-purple?style=for-the-badge)](PROJECT_STATE.md)
 
 <br>
@@ -86,8 +86,8 @@ No subsystem is considered complete merely because a directory or API exists.
 
 | Metric                                  |                Current state |
 | ---------------------------------------- | ---------------------------: |
-| Verified assertions                     |                      **716** |
-| Test suites                             |                       **29** |
+| Verified assertions                     |                      **738** |
+| Test suites                             |                       **30** |
 | PRD layers with verified implementation |                    **11 + blockchain** |
 | Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
@@ -643,22 +643,33 @@ no consensus, no multiple nodes, no VM, and no smart contracts.
 
 # 🌐 Techuilaguy NetLab
 
-An original (not Cisco-derived) educational network simulation engine
-— the foundation for the project's gamified network simulator
-direction.
+An original (not Cisco-derived) educational network simulation
+engine — now a first-class product frontier, not an isolated
+subsystem. The first complete learning experience exists: a student
+can build `PC1 → Switch → Router → Switch → PC2`, configure real IPv4
+addresses, and simulate a real ping that visibly moves through
+Ethernet → ARP → IPv4 → routing → Ethernet → destination, with every
+step recorded in an inspectable packet timeline.
 
 Current implementation:
 
-* a topology graph of Host and Switch nodes connected by links
+* a topology graph of Host, Switch, and Router nodes connected by links
 * real simulated Ethernet frames, built directly on `06-networking`'s actual wire-format codec
 * genuine (simplified) L2 switch behavior: MAC learning + flooding, not a hardcoded routing table
+* a router modeled as a real L2 broadcast-domain boundary, performing real single-hop L3 forwarding between its interfaces' subnets
+* real ARP resolution and ICMP echo (ping) simulation, using `06-networking`'s existing ARP/IPv4/ICMP codecs — no protocol reimplementation
+* an inspectable, byte-for-byte-deterministic packet timeline (every ARP/IP event, with the real frame bytes attached)
+* the first gamified mission, "Connect Two Networks" — a real objective/validation/failure/completion evaluator, not a static pass/fail stub
+* a simulation core with no OS/UI dependency, designed (not yet built) to eventually compile to WebAssembly for a browser front end
 
-Not yet implemented: ARP/IPv4/ICMP/DHCP/DNS/TCP behavior over these
-frames, routers/VLANs/NAT/firewalls, latency/loss/bandwidth
-simulation, a visual topology editor, packet capture UI, and any
-missions/grading/XP/skill-tree layer.
+Not yet implemented: multi-hop routing, DHCP/DNS/TCP/UDP, a
+persistent ARP cache, latency/loss/bandwidth simulation, a visual
+topology editor, packet capture UI, an actual browser/WebAssembly
+build, additional missions, and grading/XP/skill-tree/classroom mode.
 
-→ [Techuilaguy NetLab ADR](docs/ADR/0022-techuilaguy-netlab-foundation.md)
+→ [Techuilaguy NetLab foundation ADR](docs/ADR/0022-techuilaguy-netlab-foundation.md)
+
+→ [NetLab IPv4/ARP/routing + first mission ADR](docs/ADR/0028-netlab-ip-arp-routing-mission.md)
 
 ---
 
@@ -735,6 +746,7 @@ Vec3 + RK4 numerics
 Two-body orbital propagation
 L1 accounts/transactions/blocks/persistence
 NetLab topology + L2 switch simulation
+NetLab IPv4/ARP/routing + first mission
 Tensor + autodiff + linear regression training
 Software rasterizer (Mat4/FrameBuffer/rasterizer/scene)
 ECS / game-engine foundation (integrated with the rasterizer)
@@ -841,7 +853,8 @@ docs/ADR/
 ├── 0024  AI Tensor + autodiff foundation
 ├── 0025  Graphics software rasterizer foundation
 ├── 0026  ECS / game-engine foundation
-└── 0027  Robotics planar-arm foundation
+├── 0027  Robotics planar-arm foundation
+└── 0028  NetLab IPv4/ARP/routing + first mission
 ```
 
 The ADRs are the detailed technical record.

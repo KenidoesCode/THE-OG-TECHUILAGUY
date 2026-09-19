@@ -45,7 +45,8 @@ cross-layer property-based tests, OGGit's object store, refs/HEAD
 history, index/staging area, checkout, diff, and merge, OGForge's
 server foundation (repositories/auth/push/browse on top of OGGit), the
 Techuilaguy L1 blockchain's accounts/transactions/blocks/persistence,
-Techuilaguy NetLab's topology + L2 switch simulation engine, the
+Techuilaguy NetLab's topology + L2 switch simulation engine and its
+IPv4/ARP/single-hop-routing + first-mission layer, the
 AI Tensor + scalar-autodiff foundation (including a real linear-
 regression training convergence test), the deterministic software
 rasterizer (Mat4/FrameBuffer/rasterizer/scene), an ECS/game-engine

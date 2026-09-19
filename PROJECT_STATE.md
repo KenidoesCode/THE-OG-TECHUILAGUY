@@ -17,7 +17,7 @@ because a directory, README, or interface exists.
 **Reproducing this:** `bash tools/verify_all.sh` builds and runs every
 hosted suite referenced below and prints the real, aggregated
 pass/fail counts — reproduced most recently from a clean clone of the
-current commit (29 suites, 716 assertions, 0 failures). See
+current commit (30 suites, 738 assertions, 0 failures). See
 [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for supported
 environments, how the runner classifies failures (code/test failure
 vs. build/toolchain failure vs. environment error), and the QEMU-
@@ -203,7 +203,8 @@ no visual editor, and no missions/grading/XP yet.
 | Requirement | Status | Evidence |
 |---|---|---|
 | **Simulation engine: Node/Link topology graph, real Ethernet frames, L2 switch MAC learning + flooding** | TESTED | `24-network-simulator/netlab/`; `tests/netlab_test.sh` — 18 hosted assertions incl. a real Ethernet frame round-tripping through `06-networking`'s actual codec (genuine cross-layer reuse, not a reimplementation), unicast delivery through a switch that does NOT reach an uninvolved third host, an unknown-destination frame correctly flooding, a learning switch correctly forwarding a reply to only the learned port after one prior frame (not flooding again), broadcast reaching every host, an unreachable-MAC frame delivered to nobody without error, and a genuinely cyclic topology terminating without hanging or crashing (explicitly not "correctly" simulating the cycle — no spanning-tree protocol exists). See [`docs/ADR/0022-techuilaguy-netlab-foundation.md`](docs/ADR/0022-techuilaguy-netlab-foundation.md) |
-| ARP/IPv4/ICMP/DHCP/DNS/TCP behavior over the simulated frames, routers/VLANs/NAT/firewalls, latency/loss/bandwidth simulation, visual topology editor, packet capture UI, missions/grading/XP/skill tree, multiplayer, save/load | PLANNED | none of these exist yet; this is the frame-delivery engine only |
+| **IPv4 + ARP + single-hop routing + packet timeline + first mission** (NetLab is now a first-class product frontier, per explicit project direction) | TESTED | `24-network-simulator/netlab/ip.*`, `mission.*`, `topology.*` (Router node kind); `tests/ip_routing_test.sh` — 22 hosted assertions incl. same-subnet ping via direct ARP, the full `PC1 → Switch → Router → Switch → PC2` example pinging end to end with a real, inspectable ARP+IP packet timeline, clean (non-crashing) ARP-failure and no-route-failure reporting with specific diagnostic reasons, byte-for-byte deterministic replay of an identical simulation, and the first gamified mission ("Connect Two Networks") succeeding and failing correctly for same-subnet/missing-IP-config cases. Every frame is built through `06-networking`'s existing Ethernet/ARP/IPv4/ICMP codecs — no protocol reimplementation. See [`docs/ADR/0028-netlab-ip-arp-routing-mission.md`](docs/ADR/0028-netlab-ip-arp-routing-mission.md) for explicit non-goals (no multi-hop routing, no DHCP/DNS/TCP/UDP, no persistent ARP cache, no browser UI/WebAssembly build yet, no additional missions) |
+| DHCP/DNS/TCP/UDP behavior, multi-hop routing, VLANs/NAT/firewalls, latency/loss/bandwidth simulation, visual topology editor, packet capture UI, WebAssembly build, browser UI, additional missions/grading/XP/skill tree, multiplayer, save/load | PLANNED | none of these exist yet |
 
 ## Layer 14 (AI/ML)
 
