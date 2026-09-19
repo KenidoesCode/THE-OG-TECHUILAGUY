@@ -363,18 +363,37 @@ per-layer status of every PRD requirement, not just this summary.
 
 ## 📚 Structure
 
+Each numbered top-level directory is one PRD layer, created when real work
+on it actually begins — there is no placeholder directory for a layer that
+hasn't started yet:
+
 ```
 THE-OG-TECHUILAGUY/
-├── 01-foundations/ … 27-space-systems/
-├── docs/ · website/
-├── README.md · ARCHITECTURE.md · ROADMAP.md
-└── CONTRIBUTING.md · SECURITY.md · LICENSE
+├── 01-foundations/            Math/CS foundations
+├── 03-compiler/                OGLang + its compiler
+├── 06-networking/              Ethernet/ARP/IPv4/ICMP/UDP codecs
+├── 07-distributed-systems/     RPC, deterministic simulation, Raft
+├── 08-storage/                 Write-ahead log, KV store
+├── 10-cryptography/            SHA-256, HMAC-SHA256
+├── 11-verification/            Property-based testing
+├── 13-developer-ecosystem/     OGGit (objects, refs, HEAD, history)
+├── 15-quantum/                 State-vector simulator
+├── 18-scientific-computing/    Vec3, RK4 ODE integrator
+├── 20-space-systems/           Two-body orbital propagation
+├── 22-os/                      Techuilaguy OS (freestanding x86 kernel)
+├── docs/ADR/                   Architecture Decision Records
+├── tools/verify_all.sh         Universal test runner (real, aggregated results)
+├── PROJECT_STATE.md            Full, honestly-labeled per-layer status
+└── README.md · LICENSE
 ```
 
 ## 🤝 Contributing
 
-Code, docs, tests, benchmarks, research, and security reviews are all welcome.
-See `CONTRIBUTING.md` · `SECURITY.md` · `CODE_OF_CONDUCT.md`.
+Code, docs, tests, benchmarks, research, and security reviews are all
+welcome — this project holds itself to the same rule for outside
+contributions as for its own: every claim needs implementation and test
+evidence, and every ADR must state plainly what's implemented, tested,
+and not yet built.
 
 ---
 
