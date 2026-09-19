@@ -16,6 +16,19 @@
 # gracefully (see 22-os/tests/boot_test.sh) when qemu isn't available;
 # run them directly (`bash 22-os/tests/boot_test.sh`) when you have
 # QEMU. This script covers everything else.
+#
+# Environment note: every test script here builds a native binary
+# inside its own `tests/` directory. On Windows, running this from a
+# WSL2 shell against a Windows-mounted path (`/mnt/c/...`) can hit
+# DrvFs 9p permission quirks where a directory reports as writable but
+# a linker still can't create the output file in it (or, per some
+# reports, an ancestor directory ends up owned by `root` with no
+# group/other write bit). This script preflight-checks each test
+# directory for real write access and reports that condition as an
+# ENVIRONMENT ERROR distinct from an actual code/test failure — see
+# `docs/VERIFICATION.md` for the full explanation and the recommended
+# fix (clone/copy the repo onto a native Linux filesystem, e.g.
+# `$HOME/...` or `/tmp/...`, and run from there).
 
 set -u
 
@@ -24,20 +37,108 @@ cd "$ROOT"
 
 TOTAL_PASS=0
 TOTAL_FAIL=0
+ENV_ERROR_COUNT=0
 declare -a LAYER_NAMES
 declare -a LAYER_RESULTS
 OVERALL_OK=1
 
+# Toolchain preflight: everything here is g++/bash based. Fail fast
+# with an unambiguous diagnostic rather than letting every suite
+# report a confusing "command not found" individually.
+if ! command -v g++ >/dev/null 2>&1; then
+    cat <<'EOF'
+TOOLCHAIN ERROR:
+Required compiler was not found.
+
+Expected command: g++ (a C++20-capable GNU/Clang-compatible g++)
+
+This is a toolchain problem, not a code defect: none of the test
+suites below can build without a working g++ on PATH.
+
+Recommended solution:
+  - On Debian/Ubuntu (incl. WSL2):  sudo apt install g++
+  - On Fedora:                      sudo dnf install gcc-c++
+  - On macOS:                       xcode-select --install
+  - On native Windows without WSL:  install a Linux environment
+    (WSL2 + Ubuntu) and run from there — this project's test scripts
+    assume a POSIX shell + GNU toolchain and are not adapted for MSVC.
+
+See docs/VERIFICATION.md for the full supported-environment writeup.
+EOF
+    exit 4
+fi
+
+# Verifies that `dir` (relative to $ROOT) can actually have a file
+# created and removed in it — not just that its permission bits look
+# writable. This is the check that catches the DrvFs/WSL condition
+# described above, where a stat() of the directory can look normal
+# while an actual open()-for-write in it still fails.
+check_writable_dir() {
+    local dir="$1"
+    local probe="$dir/.verify_write_probe.$$"
+    if ( : > "$probe" ) 2>/dev/null; then
+        rm -f "$probe"
+        return 0
+    fi
+    return 1
+}
+
+# Prints the standard ENVIRONMENT ERROR diagnostic for a directory
+# that failed the writability preflight check.
+print_environment_error() {
+    local dir="$1"
+    cat <<EOF
+ENVIRONMENT ERROR:
+The repository is located on a filesystem where build artifacts
+cannot be created reliably.
+
+Detected path:
+$dir
+
+This is NOT a code or test failure — the preflight check confirmed
+the test binary for this suite cannot even be written to disk, so the
+compiler/linker was not invoked and no code was exercised.
+
+Recommended solution:
+Run verification from a native Linux filesystem, for example:
+
+  ~/projects/THE-OG-TECHUILAGUY
+
+or clone the repository into:
+
+  /tmp/og-techuilaguy-verify
+
+See docs/VERIFICATION.md for the full explanation (this is a known
+WSL2 + Windows-mounted-path (/mnt/c) DrvFs behavior, not specific to
+any one machine or username).
+EOF
+}
+
 # Runs one test script, parses its [PASS]/[FAIL] line counts from
 # actual output, and records the result. `label` is a human-readable
 # name for the summary table; `script` is the path (relative to repo
-# root) to execute.
+# root) to execute. Before running anything, checks that the script's
+# own test directory can actually accept a new file — if not, this is
+# classified as an ENVIRONMENT ERROR, never as a code/test failure.
 run_suite() {
     local label="$1"
     local script="$2"
 
     if [ ! -f "$script" ]; then
         echo "  (skipping '$label': $script not found)"
+        return
+    fi
+
+    local test_dir
+    test_dir="$(dirname "$script")"
+    if ! check_writable_dir "$test_dir"; then
+        echo "----- $label: ENVIRONMENT ERROR -----"
+        print_environment_error "$test_dir"
+        echo "----------------------------------"
+        ENV_ERROR_COUNT=$((ENV_ERROR_COUNT + 1))
+        OVERALL_OK=0
+        LAYER_NAMES+=("$label")
+        LAYER_RESULTS+=("ENVIRONMENT ERROR (build artifacts could not be created in $test_dir)")
         return
     fi
 
@@ -56,8 +157,18 @@ run_suite() {
     local status
     if [ "$exit_code" -eq 0 ] && [ "$fail_count" -eq 0 ]; then
         status="PASS"
+    elif [ "$fail_count" -gt 0 ]; then
+        # The suite built and ran; at least one real assertion failed.
+        status="FAIL — CODE/TEST FAILURE"
+        OVERALL_OK=0
+        echo "----- $label: FAILING OUTPUT -----"
+        printf '%s\n' "$output" | tail -30
+        echo "----------------------------------"
     else
-        status="FAIL"
+        # Nonzero exit with zero parsed [FAIL] assertions: the suite
+        # never got far enough to run its assertions at all (build/
+        # link/toolchain error), as opposed to running and failing.
+        status="FAIL — BUILD/TOOLCHAIN FAILURE"
         OVERALL_OK=0
         echo "----- $label: FAILING OUTPUT -----"
         printf '%s\n' "$output" | tail -30
@@ -78,22 +189,38 @@ run_suite "OGLang unit tests" "03-compiler/oglang/tests/unit_test.sh"
 # e2e_test.sh expects an already-built ./ogc binary in place (it is
 # not itself a build script) — build it here, the same command used
 # throughout this project's own development workflow.
-(
-    cd "$ROOT/03-compiler/oglang" && \
-    g++ -std=c++20 -Wall -Wextra -O2 \
-        main.cpp lexer/lexer.cpp parser/parser.cpp types/type_checker.cpp \
-        ir/lower.cpp analysis/liveness.cpp analysis/interference.cpp \
-        codegen/register_allocator.cpp codegen/x86_64.cpp \
-        -I. -o ogc
-) > /tmp/ogc_build.log 2>&1
-if [ $? -ne 0 ]; then
-    echo "  (could not build ogc — see /tmp/ogc_build.log; skipping OGLang end-to-end tests)"
-    cat /tmp/ogc_build.log
+if ! check_writable_dir "$ROOT/03-compiler/oglang"; then
+    echo "----- OGLang end-to-end tests: ENVIRONMENT ERROR -----"
+    print_environment_error "$ROOT/03-compiler/oglang"
+    echo "----------------------------------"
+    ENV_ERROR_COUNT=$((ENV_ERROR_COUNT + 1))
     OVERALL_OK=0
+    LAYER_NAMES+=("OGLang end-to-end tests")
+    LAYER_RESULTS+=("ENVIRONMENT ERROR (build artifacts could not be created in 03-compiler/oglang)")
 else
-    run_suite "OGLang end-to-end tests" "03-compiler/oglang/tests/e2e_test.sh"
-    rm -f "$ROOT/03-compiler/oglang/ogc" "$ROOT/03-compiler/oglang/main" \
-          "$ROOT/03-compiler/oglang/main.o" "$ROOT/03-compiler/oglang/main.s"
+    OGC_BUILD_LOG="$(mktemp)"
+    (
+        cd "$ROOT/03-compiler/oglang" && \
+        g++ -std=c++20 -Wall -Wextra -O2 \
+            main.cpp lexer/lexer.cpp parser/parser.cpp types/type_checker.cpp \
+            ir/lower.cpp analysis/liveness.cpp analysis/interference.cpp \
+            codegen/register_allocator.cpp codegen/x86_64.cpp \
+            -I. -o ogc
+    ) > "$OGC_BUILD_LOG" 2>&1
+    if [ $? -ne 0 ]; then
+        echo "----- OGLang end-to-end tests: FAILING OUTPUT (FAIL — BUILD/TOOLCHAIN FAILURE) -----"
+        echo "  (could not build ogc)"
+        cat "$OGC_BUILD_LOG"
+        echo "----------------------------------"
+        OVERALL_OK=0
+        LAYER_NAMES+=("OGLang end-to-end tests")
+        LAYER_RESULTS+=("FAIL — BUILD/TOOLCHAIN FAILURE (0 passed, 0 failed)")
+    else
+        run_suite "OGLang end-to-end tests" "03-compiler/oglang/tests/e2e_test.sh"
+        rm -f "$ROOT/03-compiler/oglang/ogc" "$ROOT/03-compiler/oglang/main" \
+              "$ROOT/03-compiler/oglang/main.o" "$ROOT/03-compiler/oglang/main.s"
+    fi
+    rm -f "$OGC_BUILD_LOG"
 fi
 echo
 
@@ -151,6 +278,9 @@ for i in "${!LAYER_NAMES[@]}"; do
 done
 echo
 echo "TOTAL: $TOTAL_PASS assertions passed, $TOTAL_FAIL failed"
+if [ "$ENV_ERROR_COUNT" -gt 0 ]; then
+    echo "ENVIRONMENT ERRORS: $ENV_ERROR_COUNT suite(s) could not even build — see docs/VERIFICATION.md"
+fi
 echo
 
 echo "Layers with NO test suite in this runner yet (not started, or"
@@ -171,6 +301,10 @@ rm -f "$ROOT/03-compiler/oglang/main.s" "$ROOT/03-compiler/oglang/main.o"
 if [ "$OVERALL_OK" -eq 1 ]; then
     echo "RESULT: ALL RUN SUITES PASSED"
     exit 0
+elif [ "$ENV_ERROR_COUNT" -gt 0 ] && [ "$TOTAL_FAIL" -eq 0 ]; then
+    echo "RESULT: VERIFICATION INCOMPLETE — ENVIRONMENT ERROR (no code/test failures observed;"
+    echo "        $ENV_ERROR_COUNT suite(s) could not build artifacts in this environment)"
+    exit 3
 else
     echo "RESULT: AT LEAST ONE SUITE FAILED — see failing output above"
     exit 1

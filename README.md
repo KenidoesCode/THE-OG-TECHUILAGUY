@@ -89,7 +89,7 @@ No subsystem is considered complete merely because a directory or API exists.
 | Verified assertions                     |                      **439** |
 | Test suites                             |                       **18** |
 | PRD layers with verified implementation |                       **11** |
-| Latest commit                           |                    `f2d826f` |
+| Latest commit                           |                    `ce6a0d9` |
 | Working tree                            |                    **Clean** |
 | Main branch                             | **Synchronized with GitHub** |
 
@@ -99,7 +99,13 @@ Run everything yourself:
 bash tools/verify_all.sh
 ```
 
-The runner aggregates the real results from the project's implemented test suites.
+The runner aggregates the real results from the project's implemented
+test suites. It also preflight-checks that each suite's build
+directory can actually accept new files, and reports a filesystem
+write problem (a known WSL2 `/mnt/c` DrvFs quirk on Windows) as a
+distinct environment error rather than a code failure — see
+[`docs/VERIFICATION.md`](docs/VERIFICATION.md) for the supported
+environments and how to read every failure mode the runner reports.
 
 For the complete status of every layer and requirement:
 
@@ -601,7 +607,8 @@ THE-OG-TECHUILAGUY/
 ├── 22-os/
 │
 ├── docs/
-│   └── ADR/
+│   ├── ADR/
+│   └── VERIFICATION.md
 │
 ├── tools/
 │   └── verify_all.sh

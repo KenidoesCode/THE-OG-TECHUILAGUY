@@ -19,3 +19,10 @@
 22-os/qemu.log
 22-os/iso/
 22-os/tests/keyboard_translation_test_bin
+
+# Every hosted test script under */tests/ builds its own
+# `<name>_test_bin` (or `_tests_bin`) binary in place; tools/verify_all.sh
+# cleans these up after a run, but ignore the whole pattern too so a
+# script run standalone, or a run interrupted before cleanup, never
+# leaves an untracked binary that could get committed by accident.
+*_bin
